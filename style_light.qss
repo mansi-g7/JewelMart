@@ -1,0 +1,35 @@
+/* Light theme for JewelMart */
+QWidget {
+  background-color: #f6f7fb; /* very light */
+  color: #1b2330; /* dark text */
+  font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  font-size: 11pt;
+}
+
+QMenuBar {
+  background: #ffffff;
+  color: #1b2330;
+}
+
+QPushButton {
+  background-color: #e6b9bf; /* soft rose */
+  color: #2b2b2b;
+  border-radius: 6px;
+  padding: 6px 12px;
+  border: 1px solid #d3a6ad;
+}
+
+QPushButton:hover { background-color: #f1c8cc; }
+QPushButton:pressed { background-color: #d29aa1; }
+
+QLineEdit, QTextEdit, QPlainTextEdit, QSpinBox {
+  background-color: #ffffff;
+  color: #1b2330;
+  border: 1px solid #dfe7ef;
+  border-radius: 4px;
+  padding: 6px;
+}
+
+QFrame#card { background-color: #ffffff; border: 1px solid #e6eef6; border-radius: 8px; padding: 8px; }
+
+QLabel[role="productPrice"] { color: #b76e79; font-weight: 700; }

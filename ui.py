@@ -7,11 +7,24 @@ is not available so the home page is never blank.
 """
 
 #import os
-# Example in data.py or check where it's defined
+# In your data.py or wherever HOME_VIDEO_URL is defined
 import os
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Assuming your video is in a subfolder like assets/
+# Get the directory of the current file (data.py)
+BASE_DIR = os.path.dirname(os.path.abspath(__file__)) 
+
+# Construct the absolute path
 HOME_VIDEO_URL = os.path.join(BASE_DIR, "assets", "E:\JM\JewelMart\assets\JewelMart.mp4")
-# Add this import
+
+# If the video is in the same directory as data.py:
+# HOME_VIDEO_URL = os.path.join(BASE_DIR, "your_video.mp4")
+
+# # Example in data.py or check where it's defined
+# import os
+# BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# HOME_VIDEO_URL = os.path.join(BASE_DIR, "assets", "E:\JM\JewelMart\assets\JewelMart.mp4")
+# # Add this import
 import os 
 
 # Add this line near the top, before if __name__ == '__main__':

@@ -26,8 +26,8 @@ HOME_VIDEO_URL = os.path.join(BASE_DIR, "assets", "E:\JM\JewelMart\assets\JewelM
 # HOME_VIDEO_URL = os.path.join(BASE_DIR, "assets", "E:\JM\JewelMart\assets\JewelMart.mp4")
 # # Add this import
 import os 
-
-# Add this line near the top, before if __name__ == '__main__':
+# Add at the TOP of your main script (e.g., above all imports)
+import os
 os.environ['QT_MULTIMEDIA_PREFERRED_PLUGINS'] = 'windowsmediafoundation'
 
 # ... rest of your imports and code ...
@@ -36,12 +36,12 @@ import importlib.util
 from PyQt5 import QtWidgets, QtGui, QtCore
 from PyQt5 import QtMultimedia, QtMultimediaWidgets
 try:
-    from PyQt5 import QtWebEngineWidgets
-    WEB_ENGINE_AVAILABLE = True # This check is in your code.
-except Exception:
-    # If this fails, QtWebEngine is not installed.
-    pass
-file_url = QtCore.QUrl.fromLocalFile(HOME_VIDEO_URL).toString() if os.path.exists(HOME_VIDEO_URL) else QtCore.QUrl(HOME_VIDEO_URL).toString()
+                player.error.connect(lambda e: show_poster_and_message())
+            except Exception:
+                try:
+                    player.error.connect(show_poster_and_message)
+                except Exception:
+                    pass
 # try:
 #     from PyQt5 import QtWebEngineWidgets
 #     WEB_ENGINE_AVAILABLE = True
@@ -65,6 +65,19 @@ try:
 except Exception:
     # ...
     pass
+
+def player_error_debug(error_code, player_instance=player):
+                print(f"!!! QMediaPlayer Error: {error_code.name} !!!")
+                # Attempt to get more detail if available
+                print(f"!!! Error String: {player_instance.errorString()} !!!")
+                show_poster_and_message()
+                
+            try:
+                # Connect the custom debug function
+                player.error.connect(player_error_debug)
+            except Exception:
+                # Fallback connection if the above fails
+                player.error.connect(show_poster_and_message)
 
 def load_users():
     try:

@@ -38,10 +38,20 @@ from PyQt5 import QtMultimedia, QtMultimediaWidgets
 try:
                 player.error.connect(lambda e: show_poster_and_message())
             except Exception:
-                try:
-                    player.error.connect(show_poster_and_message)
-                except Exception:
-                    pass
+    def player_error_debug(error_code, player_instance=player):
+                print(f"!!! QMediaPlayer Error: {error_code.name} !!!")
+                # Attempt to get more detail if available
+                print(f"!!! Error String: {player_instance.errorString()} !!!")
+                show_poster_and_message()
+                
+            try:
+                # Connect the custom debug function
+                player.error.connect(player_error_debug)
+            except Exception:
+                # Fallback connection if the above fails
+                player.error.connect(show_poster_and_message)
+
+                # ... (rest of error connections) ...
 # try:
 #     from PyQt5 import QtWebEngineWidgets
 #     WEB_ENGINE_AVAILABLE = True
@@ -66,18 +76,6 @@ except Exception:
     # ...
     pass
 
-def player_error_debug(error_code, player_instance=player):
-                print(f"!!! QMediaPlayer Error: {error_code.name} !!!")
-                # Attempt to get more detail if available
-                print(f"!!! Error String: {player_instance.errorString()} !!!")
-                show_poster_and_message()
-                
-            try:
-                # Connect the custom debug function
-                player.error.connect(player_error_debug)
-            except Exception:
-                # Fallback connection if the above fails
-                player.error.connect(show_poster_and_message)
 
 def load_users():
     try:

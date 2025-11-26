@@ -1,6 +1,46 @@
 import base64
-
+# In your data.py file:
 import os
+
+# --- IMPORTANT ---
+# 1. Replace 'your_video.mp4' with the actual file name of your video.
+# 2. Adjust the second argument (e.g., "assets") if the video is in a different folder.
+# -----------------
+
+# Get the absolute path to the directory containing this data.py file.
+BASE_DIR = os.path.dirname(os.path.abspath(__file__)) 
+
+# Construct the absolute path to the video file.
+# Example: If your structure is main_script/data.py and main_script/assets/my_jewel_video.mp4
+HOME_VIDEO_URL = os.path.join(BASE_DIR, "assets", "my_jewel_video.mp4")
+
+# If the video is in the SAME folder as data.py:
+# HOME_VIDEO_URL = os.path.join(BASE_DIR, "my_jewel_video.mp4")
+
+# If you are using a network URL, just ensure it's correct:
+# HOME_VIDEO_URL = "https://example.com/videos/jewel_promo.mp4"
+
+# INSIDE MainWindow.create_home, replacing the block near the QtMultimedia fallback
+
+            # --- START DEBUG CODE BLOCK ---
+            def player_error_debug(error_code):
+                # Print the error to your console/terminal
+                print(f"\n!!! QMediaPlayer FAILED !!!")
+                print(f"Error Code: {error_code.name}")
+                print(f"Error String: {player.errorString()}")
+                print(f"Video URL (Attempted): {url_obj.toString()}")
+                print(f"!!! QMediaPlayer FAILED !!!\n")
+                show_poster_and_message() # This will show the fallback message/poster
+                
+            try:
+                # Connect the custom debug function
+                player.error.connect(player_error_debug)
+            except Exception:
+                # Fallback connection if the above fails
+                player.error.connect(show_poster_and_message)
+            # --- END DEBUG CODE BLOCK ---
+import os
+# HOME_VIDEO_URL = os.path.join(BASE_DIR, "assets", "E:\JM\JewelMart\assets\JewelMart.mp4")
 
 # Tiny valid 1x1 PNG (transparent) base64 used to create demo asset files.
 SMALL_PNG_B64 = (

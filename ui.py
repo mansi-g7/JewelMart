@@ -10,7 +10,14 @@ is not available so the home page is never blank.
 # Example in data.py or check where it's defined
 import os
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-HOME_VIDEO_URL = os.path.join(BASE_DIR, "assets", "intro_video.mp4")
+HOME_VIDEO_URL = os.path.join(BASE_DIR, "assets", "E:\JM\JewelMart\assets\JewelMart.mp4")
+# Add this import
+import os 
+
+# Add this line near the top, before if __name__ == '__main__':
+os.environ['QT_MULTIMEDIA_PREFERRED_PLUGINS'] = 'windowsmediafoundation'
+
+# ... rest of your imports and code ...
 import json
 import importlib.util
 from PyQt5 import QtWidgets, QtGui, QtCore
@@ -21,7 +28,7 @@ try:
 except Exception:
     # If this fails, QtWebEngine is not installed.
     pass
-
+file_url = QtCore.QUrl.fromLocalFile(HOME_VIDEO_URL).toString() if os.path.exists(HOME_VIDEO_URL) else QtCore.QUrl(HOME_VIDEO_URL).toString()
 # try:
 #     from PyQt5 import QtWebEngineWidgets
 #     WEB_ENGINE_AVAILABLE = True
@@ -34,6 +41,17 @@ from data import categories, get_products, get_product_by_id, HOME_VIDEO_URL
 
 USERS_FILE = os.path.join(os.path.dirname(__file__), "users.json")
 
+def show_poster_and_message():
+    # ... your existing code ...
+    pass
+
+try:
+    # TEMPORARY DEBUG: Print the error code
+    player.error.connect(lambda e: print(f"QMediaPlayer Error: {e.name}"))
+    player.error.connect(show_poster_and_message)
+except Exception:
+    # ...
+    pass
 
 def load_users():
     try:

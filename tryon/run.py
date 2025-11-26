@@ -15,7 +15,6 @@ Notes:
 - This is a simple demo. For production-quality AR you'd refine landmark selection,
   use higher-resolution assets, and handle different face orientations robustly.
 """
-
 import os
 import time
 import tempfile

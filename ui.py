@@ -200,7 +200,12 @@ class MainWindow(QtWidgets.QMainWindow):
         w = QtWidgets.QWidget()
         layout = QtWidgets.QVBoxLayout(w)
 
+        def create_home(self):
+        w = QtWidgets.QWidget()
+        layout = QtWidgets.QVBoxLayout(w)
+
         if HOME_VIDEO_URL:
+            # Try WebEngine HTML5 <video> first when available
             if WEB_ENGINE_AVAILABLE and QtWebEngineWidgets is not None:
                 try:
                     view = QtWebEngineWidgets.QWebEngineView()
@@ -219,6 +224,20 @@ class MainWindow(QtWidgets.QMainWindow):
                     view.setHtml(html, base)
                     layout.addWidget(view, 1)
                     return w
+                except Exception:
+                    pass
+
+            # QtMultimedia fallback
+            video_widget = QtMultimediaWidgets.QVideoWidget()
+            # ... (rest of the QtMultimedia fallback code) ...
+            
+            player.play()
+            layout.addWidget(video_widget, 1)
+        else:
+            # ... (code for when HOME_VIDEO_URL is not set) ...
+
+        return w
+    
                 except Exception:
                     pass
 

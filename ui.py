@@ -6,7 +6,11 @@ QtMultimedia; it always provides a poster or message when video playback
 is not available so the home page is never blank.
 """
 
+#import os
+# Example in data.py or check where it's defined
 import os
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+HOME_VIDEO_URL = os.path.join(BASE_DIR, "assets", "intro_video.mp4")
 import json
 import importlib.util
 from PyQt5 import QtWidgets, QtGui, QtCore

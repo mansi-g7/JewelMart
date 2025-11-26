@@ -15,13 +15,19 @@ import json
 import importlib.util
 from PyQt5 import QtWidgets, QtGui, QtCore
 from PyQt5 import QtMultimedia, QtMultimediaWidgets
-
 try:
     from PyQt5 import QtWebEngineWidgets
-    WEB_ENGINE_AVAILABLE = True
+    WEB_ENGINE_AVAILABLE = True # This check is in your code.
 except Exception:
-    QtWebEngineWidgets = None
-    WEB_ENGINE_AVAILABLE = False
+    # If this fails, QtWebEngine is not installed.
+    pass
+
+# try:
+#     from PyQt5 import QtWebEngineWidgets
+#     WEB_ENGINE_AVAILABLE = True
+# except Exception:
+#     QtWebEngineWidgets = None
+#     WEB_ENGINE_AVAILABLE = False
 
 from data import categories, get_products, get_product_by_id, HOME_VIDEO_URL
 

@@ -4,8 +4,8 @@ try:
     from ui_clean import MainWindow
 except Exception:
     from ui import MainWindow
-# import sys
-# import os
+import sys
+import os
 
 SETTINGS_PATH = os.path.join(os.path.dirname(__file__), "settings.json")
 

@@ -52,10 +52,6 @@ import numpy as np
 from PIL import Image
 
 
-# from PIL import Image
-# from PIL import Image
-# from PIL import Image
-# from PIL import Image
 try:
     import mediapipe as mp
 except Exception as e:

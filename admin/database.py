@@ -1,38 +1,36 @@
 """
 database.py
-Shared MongoDB connection. Returns the `admin` database under the `JewelMart`
-connection.
+Shared MongoDB connection for JewelMart Project
 """
 
 from pymongo import MongoClient
 
-# Default MongoDB connection string
 DEFAULT_URI = "mongodb://localhost:27017/"
-
-# Database name
 DB_NAME = "JewelMart"
 
-# Admin namespace (collection group)
-ADMIN_NS = "admin"
-
-# Singleton client instance
 _client = None
 
 
-def get_admin_db(uri: str = DEFAULT_URI):
-    """
-    Return the admin database object:
-    client[DB_NAME][ADMIN_NS]
-
-    • Creates MongoClient only once (singleton)
-    • Reuses connection across modules
-    """
-
+def get_db():
+    """Return main JewelMart database object."""
     global _client
-
-    # Create client only once
     if _client is None:
-        _client = MongoClient(uri)
+        _client = MongoClient(DEFAULT_URI)
+    return _client[DB_NAME]
 
-    # Return JewelMart.admin namespace
-    return _client[DB_NAME][ADMIN_NS]
+
+# ------------------ COLLECTIONS ------------------
+
+def get_users_collection():
+    """Users registered in the system."""
+    return get_db()["users"]
+
+
+def get_products_collection():
+    """Products added by admin."""
+    return get_db()["products"]
+
+
+def get_orders_collection():
+    """Orders placed by users."""
+    return get_db()["orders"]

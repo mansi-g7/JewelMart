@@ -9,6 +9,7 @@ import json
 import importlib.util
 from PyQt5 import QtWidgets, QtGui, QtCore
 from PyQt5 import QtMultimedia, QtMultimediaWidgets
+import cv2
 
 try:
     from PyQt5 import QtWebEngineWidgets
@@ -18,6 +19,52 @@ except Exception:
     WEB_ENGINE_AVAILABLE = False
 
 from data import categories, get_products, get_product_by_id, HOME_VIDEO_URL
+
+
+class VideoThread(QtCore.QThread):
+    frame_ready = QtCore.pyqtSignal(QtGui.QImage)
+
+    def __init__(self, path, parent=None):
+        super().__init__(parent)
+        self.path = path
+        self._running = True
+
+    def run(self):
+        try:
+            cap = cv2.VideoCapture(self.path)
+            if not cap.isOpened():
+                return
+            fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
+            if fps <= 0 or fps > 120:
+                fps = 25.0
+            delay = int(1000.0 / fps)
+            while self._running:
+                ret, frame = cap.read()
+                if not ret:
+                    try:
+                        cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                        continue
+                    except Exception:
+                        break
+                try:
+                    rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                    h, w, ch = rgb.shape
+                    bytes_per_line = ch * w
+                    qimg = QtGui.QImage(rgb.data, w, h, bytes_per_line, QtGui.QImage.Format_RGB888)
+                    self.frame_ready.emit(qimg.copy())
+                except Exception:
+                    pass
+                self.msleep(max(1, delay))
+            cap.release()
+        except Exception:
+            pass
+
+    def stop(self):
+        self._running = False
+        try:
+            self.wait(1000)
+        except Exception:
+            pass
 
 
 def pixmap_for_product(product, size=(120, 120)):
@@ -123,6 +170,52 @@ class MainWindow(QtWidgets.QMainWindow):
     def create_home(self):
         w = QtWidgets.QWidget()
         layout = QtWidgets.QVBoxLayout(w)
+
+        # Try OpenCV-based playback first (works reliably where codecs are available to OpenCV)
+        try:
+            if HOME_VIDEO_URL and os.path.exists(HOME_VIDEO_URL):
+                tmp = cv2.VideoCapture(HOME_VIDEO_URL)
+                if tmp.isOpened():
+                    tmp.release()
+                    video_label = QtWidgets.QLabel()
+                    video_label.setAlignment(QtCore.Qt.AlignCenter)
+                    video_label.setMinimumSize(640, 360)
+                    layout.addWidget(video_label, 1)
+
+                    thread = VideoThread(HOME_VIDEO_URL)
+                    def _on_frame(qimg, lbl=video_label):
+                        try:
+                            pix = QtGui.QPixmap.fromImage(qimg)
+                            if not pix.isNull():
+                                sz = lbl.size()
+                                if sz.width() < 2 or sz.height() < 2:
+                                    sz = QtCore.QSize(960, 540)
+                                scaled = pix.scaled(sz, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
+                                # overlay a small frame counter for diagnostics
+                                try:
+                                    count = getattr(self, '_home_frame_count', 0) + 1
+                                    self._home_frame_count = count
+                                    overlay = QtGui.QPixmap(scaled)
+                                    painter = QtGui.QPainter(overlay)
+                                    rect = QtCore.QRect(8, overlay.height() - 30, 140, 24)
+                                    painter.fillRect(rect, QtGui.QColor(0, 0, 0, 140))
+                                    painter.setPen(QtGui.QColor(255, 255, 255))
+                                    painter.setFont(QtGui.QFont('Arial', 10))
+                                    painter.drawText(rect, QtCore.Qt.AlignVCenter | QtCore.Qt.AlignLeft, f"Frames: {count}")
+                                    painter.end()
+                                    lbl.setPixmap(overlay)
+                                except Exception:
+                                    lbl.setPixmap(scaled)
+                        except Exception:
+                            pass
+
+                    thread.frame_ready.connect(_on_frame)
+                    thread.start()
+                    # keep reference so thread is not GC'd
+                    self._home_video_thread = thread
+                    return w
+        except Exception:
+            pass
 
         if HOME_VIDEO_URL:
             if WEB_ENGINE_AVAILABLE and QtWebEngineWidgets is not None:

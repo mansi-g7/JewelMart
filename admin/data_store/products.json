@@ -1,0 +1,11 @@
+[
+  {
+    "id": 1,
+    "name": "ring",
+    "category": "ring",
+    "material": "diamond",
+    "price": 2.0,
+    "description": "hii my nice product",
+    "image_path": "product_1_ChatGPT Image Nov 28, 2025, 08_38_23 AM.png"
+  }
+]

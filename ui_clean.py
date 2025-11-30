@@ -419,7 +419,27 @@ class MainWindow(QtWidgets.QMainWindow):
         self.wishlist = set()
 
         self.stack = QtWidgets.QStackedWidget()
-        self.setCentralWidget(self.stack)
+
+        # create header / sidebar / content / footer layout
+        central = QtWidgets.QWidget()
+        central_layout = QtWidgets.QVBoxLayout(central)
+
+        # header
+        header = self.create_header()
+        central_layout.addWidget(header)
+
+        # main content area: sidebar + stacked pages
+        content_h = QtWidgets.QHBoxLayout()
+        self.sidebar = self.create_sidebar()
+        content_h.addWidget(self.sidebar)
+        content_h.addWidget(self.stack, 1)
+        central_layout.addLayout(content_h, 1)
+
+        # footer
+        footer = self.create_footer()
+        central_layout.addWidget(footer)
+
+        self.setCentralWidget(central)
 
         # pages
         self.home_page = self.create_home()
@@ -459,6 +479,52 @@ class MainWindow(QtWidgets.QMainWindow):
         nav.addAction("Contact Us", lambda: self.stack.setCurrentWidget(self.contact_page))
         nav.addAction("About Us", lambda: self.stack.setCurrentWidget(self.about_page))
         nav.addAction("Feedback", lambda: self.stack.setCurrentWidget(self.feedback_page))
+
+    def create_header(self):
+        w = QtWidgets.QWidget()
+        h = QtWidgets.QHBoxLayout(w)
+        title = QtWidgets.QLabel("JewelMart")
+        title.setStyleSheet("font-size: 20px; font-weight: bold;")
+        search = QtWidgets.QLineEdit()
+        search.setPlaceholderText("Search products...")
+        search.setMaximumWidth(300)
+        login_btn = QtWidgets.QPushButton("Login")
+        login_btn.clicked.connect(self.show_login)
+        h.addWidget(title)
+        h.addStretch(1)
+        h.addWidget(search)
+        h.addWidget(login_btn)
+        return w
+
+    def create_footer(self):
+        w = QtWidgets.QWidget()
+        h = QtWidgets.QHBoxLayout(w)
+        h.addStretch(1)
+        h.addWidget(QtWidgets.QLabel("© JewelMart - Demo"))
+        h.addStretch(1)
+        return w
+
+    def create_sidebar(self):
+        w = QtWidgets.QWidget()
+        v = QtWidgets.QVBoxLayout(w)
+        lbl = QtWidgets.QLabel("Categories")
+        lbl.setStyleSheet("font-weight: bold;")
+        v.addWidget(lbl)
+        for c in categories:
+            b = QtWidgets.QPushButton(c)
+            b.clicked.connect(lambda _, cat=c: self.open_category(cat))
+            v.addWidget(b)
+        v.addStretch(1)
+        login_btn = QtWidgets.QPushButton("Login")
+        login_btn.clicked.connect(self.show_login)
+        v.addWidget(login_btn)
+        contact_btn = QtWidgets.QPushButton("Contact Us")
+        contact_btn.clicked.connect(lambda: self.stack.setCurrentWidget(self.contact_page))
+        v.addWidget(contact_btn)
+        about_btn = QtWidgets.QPushButton("About Us")
+        about_btn.clicked.connect(lambda: self.stack.setCurrentWidget(self.about_page))
+        v.addWidget(about_btn)
+        return w
 
     def create_home(self):
         w = QtWidgets.QWidget()

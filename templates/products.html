@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ category }} — JewelMart{% endblock %}
+
+{% block content %}
+<section style="padding:40px;">
+  <h2>Products in {{ category }}</h2>
+  <div style="display:flex;flex-wrap:wrap;gap:16px;">
+    {% for p in products %}
+      <div style="width:220px;background:#fff;padding:12px;border-radius:8px;box-shadow:0 0 8px #ddd;">
+        <img src="https://via.placeholder.com/220x140" style="width:100%;border-radius:6px;" />
+        <h4>{{ p.name }}</h4>
+        <p>₹ {{ p.price }}</p>
+      </div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Python Website</title>
+        <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+</body>
+</html>
+{% extends 'base.html' %}
+
+{% block title %}Home — JewelMart{% endblock %}
+
+{% block content %}
+    <section class="hero">
+        <h1>Welcome to JewelMart</h1>
+    </section>
+
+    <section class="categories">
+        <h2>Categories</h2>
+        <div class="cat-grid">
+            {% for c in categories %}
+                <div class="cat-box">
+                    <img src="https://via.placeholder.com/200" alt="{{ c }}">
+                    <h3><a href="{{ url_for('category_products', name=c) }}">{{ c }}</a></h3>
+                </div>
+            {% endfor %}
+        </div>
+    </section>
+{% endblock %}

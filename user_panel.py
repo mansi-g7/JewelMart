@@ -552,8 +552,34 @@
 
 # user_panel.py
 from PyQt5 import QtWidgets, QtGui, QtCore
+<<<<<<< HEAD
 import sys, os
 from pymongo import MongoClient
+=======
+import sys, os, json, uuid, math
+from functools import partial
+
+# Ensure project root is on sys.path so local modules (`admin.database`) can be imported
+proj_root = os.path.dirname(os.path.abspath(__file__))
+if proj_root not in sys.path:
+    sys.path.insert(0, proj_root)
+
+# Try to import the admin DB helper. Older versions used `database.get_admin_db`.
+try:
+    from database import get_admin_db
+except Exception:
+    try:
+        # admin/database.py provides get_db()
+        from admin import database as _admindb
+        get_admin_db = _admindb.get_db
+    except Exception:
+        # fallback stub that raises an informative error when called
+        def get_admin_db():
+            raise ModuleNotFoundError(
+                "Could not import database.get_admin_db or admin.database.get_db. "
+                "Ensure `admin/database.py` exists and project root is on PYTHONPATH."
+            )
+>>>>>>> 63bc2f918834774e6ce3642930caa42f791480ac
 
 # -----------------------
 #  MONGODB CONNECTION
@@ -757,9 +783,31 @@ class UserPanel(QtWidgets.QMainWindow):
 
 
 def main():
+<<<<<<< HEAD
     app = QtWidgets.QApplication(sys.argv)
     ui = UserPanel()
     ui.show()
+=======
+    # Create QApplication early so any QMessageBox or QDialog can be shown
+    app = QtWidgets.QApplication(sys.argv)
+
+    # Connect to admin DB namespace (same helper used by admin)
+    try:
+        db = get_admin_db()
+    except Exception as e:
+        # Show an error dialog now that QApplication exists
+        QtWidgets.QMessageBox.critical(None, "DB Error", f"Failed to connect to DB: {e}")
+        return
+
+    # Login
+    login = LoginDialog(db)
+    if login.exec_() != QtWidgets.QDialog.Accepted:
+        return
+    user = login.user or {"email":"guest","name":"Guest"}
+
+    win = UserWindow(db, user)
+    win.show()
+>>>>>>> 63bc2f918834774e6ce3642930caa42f791480ac
     sys.exit(app.exec_())
 
 if __name__ == "__main__":

@@ -17,7 +17,27 @@
 from PyQt5 import QtWidgets, QtGui, QtCore
 import sys, os, json, uuid, math
 from functools import partial
-from database import get_admin_db
+
+# Ensure project root is on sys.path so local modules (`admin.database`) can be imported
+proj_root = os.path.dirname(os.path.abspath(__file__))
+if proj_root not in sys.path:
+    sys.path.insert(0, proj_root)
+
+# Try to import the admin DB helper. Older versions used `database.get_admin_db`.
+try:
+    from database import get_admin_db
+except Exception:
+    try:
+        # admin/database.py provides get_db()
+        from admin import database as _admindb
+        get_admin_db = _admindb.get_db
+    except Exception:
+        # fallback stub that raises an informative error when called
+        def get_admin_db():
+            raise ModuleNotFoundError(
+                "Could not import database.get_admin_db or admin.database.get_db. "
+                "Ensure `admin/database.py` exists and project root is on PYTHONPATH."
+            )
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))   # .../JewelMart
 ASSETS_DIR = os.path.join(BASE_DIR, "assets")
@@ -527,11 +547,14 @@ class UserWindow(QtWidgets.QMainWindow):
 
 # Application entry ---------------------------------------------------------
 def main():
+    # Create QApplication early so any QMessageBox or QDialog can be shown
+    app = QtWidgets.QApplication(sys.argv)
+
     # Connect to admin DB namespace (same helper used by admin)
     try:
         db = get_admin_db()
     except Exception as e:
-        # fallback: try to create a minimal compatible object that raises on write
+        # Show an error dialog now that QApplication exists
         QtWidgets.QMessageBox.critical(None, "DB Error", f"Failed to connect to DB: {e}")
         return
 
@@ -541,7 +564,6 @@ def main():
         return
     user = login.user or {"email":"guest","name":"Guest"}
 
-    app = QtWidgets.QApplication(sys.argv)
     win = UserWindow(db, user)
     win.show()
     sys.exit(app.exec_())

@@ -193,18 +193,20 @@ def run_tryon(product):
                         frame = overlay_transparent(frame, resized, x, y)
 
                 elif 'earring' in category or 'ear' in category:
-                    # overlay two small earrings at ear positions
-                    target_w = int(face_w * 0.15)
+                    # overlay earrings at ear positions (larger size, positioned at ear lobe)
+                    target_w = int(face_w * 0.55)  # Much larger earrings
                     scale = target_w / overlay.shape[1]
                     new_h = max(1, int(overlay.shape[0] * scale))
                     resized = cv2.resize(overlay, (target_w, new_h), interpolation=cv2.INTER_AREA)
                     if left_ear:
                         x = int(left_ear[0] - target_w / 2)
-                        y = int(left_ear[1] - new_h / 2)
+                        # Position below ear, not above (add offset downward)
+                        y = int(left_ear[1] + new_h * 0.3)
                         frame = overlay_transparent(frame, resized, x, y)
                     if right_ear:
                         x = int(right_ear[0] - target_w / 2)
-                        y = int(right_ear[1] - new_h / 2)
+                        # Position below ear, not above (add offset downward)
+                        y = int(right_ear[1] + new_h * 0.3)
                         # flip horizontally for right ear
                         flipped = cv2.flip(resized, 1)
                         frame = overlay_transparent(frame, flipped, x, y)

@@ -4,12 +4,17 @@ import os
 import json
 import shutil
 
+# import the helper that returns the admin namespace/database object
+# this is the function from your fixed database.py
+from database import get_admin_db
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(BASE_DIR)
-USERS_FILE = os.path.join(PROJECT_ROOT, "users.json")
+USERS_FILE = os.path.join(PROJECT_ROOT, "users.json")   # kept as fallback / migration source
 CATALOG_PATH = os.path.join(PROJECT_ROOT, "catalog.json")
 ASSETS_DIR = os.path.join(PROJECT_ROOT, "assets")
 
+# categories/data fallback if you don't have a data.py
 try:
     from data import categories, get_products
 except Exception:
@@ -17,36 +22,36 @@ except Exception:
     def get_products(category=None):
         return []
 
-
-def load_users():
-    try:
-        with open(USERS_FILE, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return {}
-
-
-def load_catalog():
+# -----------------------
+# Migration helper (optional)
+# -----------------------
+def migrate_json_catalog_to_mongo():
+    """
+    One-time helper: if you have an existing catalog.json, import it to MongoDB.
+    Call this manually if you want to migrate.
+    """
+    db = get_admin_db()
+    products_coll = db["products"]
+    if not os.path.exists(CATALOG_PATH):
+        return False, "No local catalog.json found"
     try:
         with open(CATALOG_PATH, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        # fallback: try to read from data.get_products()
-        try:
-            return get_products()
-        except Exception:
-            return []
+            products = json.load(f)
+    except Exception as e:
+        return False, f"Failed reading catalog.json: {e}"
+
+    # insert/update each product by its 'id' field (upsert)
+    for p in products:
+        pid = p.get("id")
+        if pid is None:
+            continue
+        products_coll.update_one({"id": pid}, {"$set": p}, upsert=True)
+    return True, f"Migrated {len(products)} products to MongoDB"
 
 
-def save_catalog(products):
-    try:
-        with open(CATALOG_PATH, "w", encoding="utf-8") as f:
-            json.dump(products, f, indent=2)
-        return True
-    except Exception:
-        return False
-
-
+# -----------------------
+# Admin UI Dialogs
+# -----------------------
 class AddProductDialog(QtWidgets.QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -86,16 +91,19 @@ class AddProductDialog(QtWidgets.QDialog):
             self.image_path.setText(path)
 
 
+# -----------------------
+# Admin main window
+# -----------------------
 class AdminWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("JewelMart - Admin Panel")
-        self.resize(800, 600)
+        self.resize(900, 650)
 
         tabs = QtWidgets.QTabWidget()
         self.setCentralWidget(tabs)
 
-        # Users tab
+        # Users tab (reads from users collection; also shows fallback to local users.json)
         users_w = QtWidgets.QWidget()
         users_layout = QtWidgets.QVBoxLayout(users_w)
         self.users_list = QtWidgets.QListWidget()
@@ -103,6 +111,9 @@ class AdminWindow(QtWidgets.QMainWindow):
         refresh_users = QtWidgets.QPushButton("Refresh")
         refresh_users.clicked.connect(self.load_users_into_list)
         users_layout.addWidget(refresh_users)
+        migrate_btn = QtWidgets.QPushButton("Migrate local catalog.json → MongoDB")
+        migrate_btn.clicked.connect(self.run_migration)
+        users_layout.addWidget(migrate_btn)
         tabs.addTab(users_w, "Users")
 
         # Catalog tab
@@ -127,24 +138,72 @@ class AdminWindow(QtWidgets.QMainWindow):
 
         tabs.addTab(cat_w, "Catalog")
 
+        # load initial data
+        self.db = get_admin_db()
+        self.products = []   # local cache for UI (list of dicts)
         self.load_users_into_list()
         self.load_catalog_into_list()
 
+    # -----------------------
+    # Users
+    # -----------------------
     def load_users_into_list(self):
+        """
+        Load users from MongoDB users collection. If no users found and local users.json exists,
+        show its contents as fallback.
+        """
         self.users_list.clear()
-        users = load_users()
-        for email, info in users.items():
-            name = info.get("name", "")
-            self.users_list.addItem(f"{email} — {name}")
+        users_coll = self.db["users"]
+        try:
+            found = list(users_coll.find())
+            if found:
+                for u in found:
+                    email = u.get("email", u.get("_id", "unknown"))
+                    name = u.get("name", "")
+                    self.users_list.addItem(f"{email} — {name}")
+                return
+        except Exception:
+            # fallthrough to local file fallback
+            pass
 
+        # fallback to local users.json
+        try:
+            with open(USERS_FILE, "r", encoding="utf-8") as f:
+                users = json.load(f)
+            for email, info in users.items():
+                name = info.get("name", "")
+                self.users_list.addItem(f"{email} — {name}")
+        except Exception:
+            # nothing to show
+            pass
+
+    # -----------------------
+    # Catalog / Products
+    # -----------------------
     def load_catalog_into_list(self):
+        """
+        Load products from MongoDB 'products' collection and populate the UI list.
+        """
         self.cat_list.clear()
-        self.products = load_catalog()
+        products_coll = self.db["products"]
+
+        try:
+            # get all products sorted by id ascending if id exists
+            cursor = products_coll.find().sort("id", 1)
+            self.products = list(cursor)
+        except Exception:
+            # fallback to local catalog.json reading
+            try:
+                with open(CATALOG_PATH, "r", encoding="utf-8") as f:
+                    self.products = json.load(f)
+            except Exception:
+                self.products = []
+
         for p in self.products:
             item = QtWidgets.QListWidgetItem(p.get("name", "(no name)"))
-            # try to set an icon
             img = p.get("image_path")
             if img:
+                # if image path is absolute use it, otherwise look in assets by basename
                 img_path = img if os.path.isabs(img) else os.path.join(ASSETS_DIR, os.path.basename(img))
                 if os.path.exists(img_path):
                     pix = QtGui.QPixmap(img_path).scaled(48, 48, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
@@ -156,14 +215,26 @@ class AdminWindow(QtWidgets.QMainWindow):
         if idx < 0 or idx >= len(self.products):
             return
         p = self.products[idx]
-        lines = [f"ID: {p.get('id')}", f"Name: {p.get('name')}", f"Category: {p.get('category')}", f"Material: {p.get('material')}", f"Price: {p.get('price')}", f"Image: {p.get('image_path')}", "", p.get('description','')]
+        lines = [
+            f"ID: {p.get('id')}",
+            f"Name: {p.get('name')}",
+            f"Category: {p.get('category')}",
+            f"Material: {p.get('material')}",
+            f"Price: {p.get('price')}",
+            f"Image: {p.get('image_path')}",
+            "",
+            p.get('description', '')
+        ]
         self.detail.setPlainText("\n".join(str(x) for x in lines))
 
     def add_product(self):
+        """
+        Collect fields from dialog, copy image into assets/, then insert new product into MongoDB.
+        """
         dlg = AddProductDialog(self)
         if dlg.exec_() != QtWidgets.QDialog.Accepted:
             return
-        # Build product dict
+
         name = dlg.name.text().strip()
         category = dlg.category.currentText()
         material = dlg.material.text().strip()
@@ -174,27 +245,23 @@ class AdminWindow(QtWidgets.QMainWindow):
         desc = dlg.description.toPlainText().strip()
         img_src = dlg.image_path.text().strip()
 
-        # determine new id
-        max_id = 0
-        for p in self.products:
-            try:
-                if int(p.get("id", 0)) > max_id:
-                    max_id = int(p.get("id", 0))
-            except Exception:
-                pass
-        new_id = max_id + 1
+        products_coll = self.db["products"]
 
-        img_target_name = None
+        # compute new numeric id: find max existing id
+        max_doc = products_coll.find_one(sort=[("id", -1)])
+        max_id = max_doc.get("id", 0) if max_doc else 0
+        new_id = int(max_id) + 1
+
+        img_target_name = ""
         if img_src and os.path.exists(img_src):
             os.makedirs(ASSETS_DIR, exist_ok=True)
             img_target_name = f"product_{new_id}_" + os.path.basename(img_src)
             img_target = os.path.join(ASSETS_DIR, img_target_name)
             try:
                 shutil.copyfile(img_src, img_target)
-                # store relative basename so data loader can resolve
-                img_target_name = img_target_name
+                img_target_name = img_target_name  # stored as basename (relative)
             except Exception:
-                img_target_name = None
+                img_target_name = ""
 
         new_prod = {
             "id": new_id,
@@ -202,31 +269,73 @@ class AdminWindow(QtWidgets.QMainWindow):
             "category": category,
             "material": material,
             "price": price,
-            "image_path": img_target_name or "",
+            "image_path": img_target_name,
             "description": desc,
         }
-        self.products.append(new_prod)
-        if save_catalog(self.products):
-            QtWidgets.QMessageBox.information(self, "Saved", "Product saved to catalog.json")
-        else:
-            QtWidgets.QMessageBox.warning(self, "Error", "Failed to save catalog.json")
+
+        try:
+            products_coll.insert_one(new_prod)
+            QtWidgets.QMessageBox.information(self, "Saved", "Product saved to MongoDB (products collection).")
+        except Exception as e:
+            # As fallback, append to catalog.json
+            try:
+                # read existing
+                local_products = []
+                if os.path.exists(CATALOG_PATH):
+                    with open(CATALOG_PATH, "r", encoding="utf-8") as f:
+                        local_products = json.load(f)
+                local_products.append(new_prod)
+                with open(CATALOG_PATH, "w", encoding="utf-8") as f:
+                    json.dump(local_products, f, indent=2)
+                QtWidgets.QMessageBox.warning(self, "DB Error", f"Failed to insert to DB; saved to catalog.json instead.\n{e}")
+            except Exception:
+                QtWidgets.QMessageBox.critical(self, "Error", f"Failed to save product: {e}")
+
         self.load_catalog_into_list()
 
     def delete_selected(self):
+        """
+        Delete the selected product from MongoDB (by product 'id').
+        """
         sel = self.cat_list.currentRow()
         if sel < 0 or sel >= len(self.products):
             return
         confirm = QtWidgets.QMessageBox.question(self, "Delete", "Delete selected product?", QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
         if confirm != QtWidgets.QMessageBox.Yes:
             return
+
         prod = self.products.pop(sel)
-        if save_catalog(self.products):
-            QtWidgets.QMessageBox.information(self, "Deleted", "Product removed from catalog.json")
-        else:
-            QtWidgets.QMessageBox.warning(self, "Error", "Failed to update catalog.json")
+        pid = prod.get("id")
+        try:
+            products_coll = self.db["products"]
+            if pid is not None:
+                products_coll.delete_one({"id": pid})
+            QtWidgets.QMessageBox.information(self, "Deleted", "Product removed.")
+        except Exception as e:
+            QtWidgets.QMessageBox.warning(self, "Error", f"Failed to delete from DB: {e}")
+
+        # remove image file if exists (optional)
+        img = prod.get("image_path")
+        if img:
+            img_path = img if os.path.isabs(img) else os.path.join(ASSETS_DIR, os.path.basename(img))
+            try:
+                if os.path.exists(img_path):
+                    os.remove(img_path)
+            except Exception:
+                pass
+
         self.load_catalog_into_list()
 
+    def run_migration(self):
+        ok, msg = migrate_json_catalog_to_mongo()
+        if ok:
+            QtWidgets.QMessageBox.information(self, "Migration", msg)
+        else:
+            QtWidgets.QMessageBox.warning(self, "Migration", msg)
 
+# -----------------------
+# App entrypoint
+# -----------------------
 def main():
     app = QtWidgets.QApplication(sys.argv)
     w = AdminWindow()

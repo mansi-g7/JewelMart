@@ -3,6 +3,7 @@
 import os
 import json
 import importlib.util
+import cv2
 from PyQt5 import QtWidgets, QtGui, QtCore
 from PyQt5 import QtMultimedia, QtMultimediaWidgets
 
@@ -12,6 +13,13 @@ try:
 except Exception:
     QtWebEngineWidgets = None
     WEB_ENGINE_AVAILABLE = False
+
+try:
+    import vlc
+    VLC_AVAILABLE = True
+except Exception:
+    vlc = None
+    VLC_AVAILABLE = False
 
 from data import categories, get_products, get_product_by_id, HOME_VIDEO_URL
 
@@ -237,60 +245,107 @@ class MainWindow(QtWidgets.QMainWindow):
         return w
     
     def create_home(self):
-        """Create home page with video or fallback."""
+        """Create home page with video using QMediaPlayer."""
         w = QtWidgets.QWidget()
         layout = QtWidgets.QVBoxLayout(w)
         layout.setContentsMargins(0, 0, 0, 0)
         
+        print(f"\n[HOME] ========== HOME PAGE ==========")
+        print(f"[HOME] Video: {HOME_VIDEO_URL}")
+        
+        # Create video widget
+        video_widget = QtMultimediaWidgets.QVideoWidget()
+        video_widget.setStyleSheet("background-color: black;")
+        layout.addWidget(video_widget)
+        
+        # Create media player
+        self.media_player = QtMultimedia.QMediaPlayer()
+        self.media_player.setVideoOutput(video_widget)
+        
         if HOME_VIDEO_URL and os.path.exists(HOME_VIDEO_URL):
-            # Try QtWebEngine first
-            if WEB_ENGINE_AVAILABLE and QtWebEngineWidgets is not None:
-                try:
-                    view = QtWebEngineWidgets.QWebEngineView()
-                    html = f"""
-                    <html>
-                    <body style="margin:0; padding:0; background: black;">
-                    <video width="100%" height="100%" autoplay loop muted style="display: block;">
-                        <source src="file:///{HOME_VIDEO_URL.replace(chr(92), '/')}" type="video/mp4">
-                        Your browser does not support HTML5 video.
-                    </video>
-                    </body>
-                    </html>
-                    """
-                    view.setHtml(html)
-                    layout.addWidget(view, 1)
-                    return w
-                except Exception as e:
-                    print(f"WebEngine failed: {e}")
+            print(f"[HOME] Setting media: {HOME_VIDEO_URL}")
             
-            # Fallback to QtMultimedia
-            try:
-                video_widget = QtMultimediaWidgets.QVideoWidget()
-                video_widget.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
-                layout.addWidget(video_widget, 1)
-                
-                player = QtMultimedia.QMediaPlayer()
-                player.setVideoOutput(video_widget)
-                player.setMedia(QtMultimedia.QMediaContent(QtCore.QUrl.fromLocalFile(HOME_VIDEO_URL)))
-                player.setMuted(True)
-                
-                # Enable looping
-                player.mediaStatusChanged.connect(lambda status: (
-                    player.play() if status == QtMultimedia.QMediaPlayer.EndOfMedia else None
-                ))
-                
-                player.play()
-                return w
-            except Exception as e:
-                print(f"QtMultimedia failed: {e}")
+            # Use QUrl to open the video file
+            media = QtMultimedia.QMediaContent(QtCore.QUrl.fromLocalFile(HOME_VIDEO_URL))
+            self.media_player.setMedia(media)
+            
+            # Connect signals
+            self.media_player.mediaStatusChanged.connect(self.on_media_status_changed)
+            self.media_player.stateChanged.connect(self.on_player_state_changed)
+            self.media_player.positionChanged.connect(self.on_position_changed)
+            self.media_player.durationChanged.connect(self.on_duration_changed)
+            
+            # Set volume to 0 (muted)
+            self.media_player.setVolume(0)
+            
+            # Play
+            print(f"[HOME] Starting playback...")
+            self.media_player.play()
+        else:
+            print(f"[HOME] Video not found, showing welcome screen")
+            self.show_welcome_screen(layout)
         
-        # Fallback: show placeholder
-        label = QtWidgets.QLabel("JewelMart - Welcome")
-        label.setStyleSheet("font-size: 20px; text-align: center;")
-        layout.addWidget(label)
-        layout.addStretch()
-        
+        print(f"[HOME] ========== READY ==========\n")
         return w
+    
+    def show_welcome_screen(self, layout):
+        """Display welcome screen."""
+        widget = QtWidgets.QWidget()
+        widget.setStyleSheet("background-color: black;")
+        vbox = QtWidgets.QVBoxLayout(widget)
+        vbox.addStretch()
+        
+        title = QtWidgets.QLabel("JewelMart")
+        title.setStyleSheet("font-size: 48px; font-weight: bold; color: #E6C8D8;")
+        title.setAlignment(QtCore.Qt.AlignCenter)
+        vbox.addWidget(title)
+        
+        subtitle = QtWidgets.QLabel("Premium Jewelry Store")
+        subtitle.setStyleSheet("font-size: 20px; color: #B8A0B8;")
+        subtitle.setAlignment(QtCore.Qt.AlignCenter)
+        vbox.addWidget(subtitle)
+        
+        vbox.addStretch()
+        layout.addWidget(widget, 1)
+    
+    def on_media_status_changed(self, status):
+        """Handle media status changes."""
+        status_map = {
+            QtMultimedia.QMediaPlayer.UnknownMediaStatus: "Unknown",
+            QtMultimedia.QMediaPlayer.NoMedia: "NoMedia",
+            QtMultimedia.QMediaPlayer.LoadingMedia: "Loading",
+            QtMultimedia.QMediaPlayer.LoadedMedia: "Loaded",
+            QtMultimedia.QMediaPlayer.StalledMedia: "Stalled",
+            QtMultimedia.QMediaPlayer.BufferingMedia: "Buffering",
+            QtMultimedia.QMediaPlayer.BufferedMedia: "Buffered",
+            QtMultimedia.QMediaPlayer.EndOfMedia: "EndOfMedia",
+            QtMultimedia.QMediaPlayer.InvalidMedia: "InvalidMedia",
+        }
+        print(f"[HOME] Media status: {status_map.get(status, str(status))}")
+        
+        # Loop: restart when finished
+        if status == QtMultimedia.QMediaPlayer.EndOfMedia:
+            print(f"[HOME] End of video, restarting...")
+            self.media_player.setPosition(0)
+            self.media_player.play()
+    
+    def on_player_state_changed(self, state):
+        """Handle player state changes."""
+        state_map = {
+            QtMultimedia.QMediaPlayer.StoppedState: "Stopped",
+            QtMultimedia.QMediaPlayer.PlayingState: "Playing",
+            QtMultimedia.QMediaPlayer.PausedState: "Paused",
+        }
+        print(f"[HOME] Player state: {state_map.get(state, str(state))}")
+    
+    def on_position_changed(self, position):
+        """Handle position changes."""
+        pass  # Suppress verbose logging
+    
+    def on_duration_changed(self, duration):
+        """Handle duration changes."""
+        print(f"[HOME] Video duration: {duration}ms")
+
     
     def create_category_page(self):
         """Create category selection page."""

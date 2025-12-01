@@ -860,43 +860,111 @@ class ProductDetails(QtWidgets.QDialog):
 class UserPanel(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("JewelMart — User Panel")
-        self.resize(900, 600)
+        self.setWindowTitle("JewelMart — Luxury Jewelry Store")
+        self.resize(1200, 800)
+        
+        # Light theme stylesheet
+        self.setStyleSheet("""
+            QMainWindow {
+                background-color: #FAFAFA;
+            }
+            QLineEdit {
+                border: 1px solid #E0E0E0;
+                border-radius: 4px;
+                padding: 8px;
+                background-color: #FFFFFF;
+                color: #333333;
+            }
+            QPushButton {
+                background-color: #F5D7C6;
+                color: #333333;
+                border: none;
+                border-radius: 4px;
+                padding: 8px 16px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #E8BFB0;
+            }
+            QLabel {
+                color: #333333;
+            }
+        """)
 
         central = QtWidgets.QWidget()
         self.setCentralWidget(central)
-        v = QtWidgets.QVBoxLayout(central)
+        main_layout = QtWidgets.QVBoxLayout(central)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
+
+        # Header with logo and search
+        header = QtWidgets.QWidget()
+        header.setStyleSheet("background-color: #FFFFFF; border-bottom: 1px solid #E0E0E0;")
+        header_layout = QtWidgets.QVBoxLayout(header)
+        header_layout.setContentsMargins(20, 15, 20, 15)
+
+        # Logo
+        logo = QtWidgets.QLabel("✨ JewelMart")
+        logo.setStyleSheet("font-size: 24px; font-weight: bold; color: #C8937E;")
+        header_layout.addWidget(logo)
 
         # Search bar
-        top = QtWidgets.QHBoxLayout()
+        search_layout = QtWidgets.QHBoxLayout()
         self.search = QtWidgets.QLineEdit()
-        self.search.setPlaceholderText("Search by product name or category...")
+        self.search.setPlaceholderText("Search jewelry by name or category...")
+        self.search.setMaximumWidth(500)
+        self.search.returnPressed.connect(self.search_products)
         search_btn = QtWidgets.QPushButton("Search")
         search_btn.clicked.connect(self.search_products)
-
         refresh_btn = QtWidgets.QPushButton("Refresh")
         refresh_btn.clicked.connect(self.load_products)
+        
+        search_layout.addWidget(self.search)
+        search_layout.addWidget(search_btn)
+        search_layout.addWidget(refresh_btn)
+        search_layout.addStretch()
+        header_layout.addLayout(search_layout)
 
-        top.addWidget(self.search)
-        top.addWidget(search_btn)
-        top.addWidget(refresh_btn)
-        v.addLayout(top)
+        main_layout.addWidget(header)
 
-        # Scroll Area
-        self.scroll = QtWidgets.QScrollArea()
-        self.scroll.setWidgetResizable(True)
+        # Main content area with category tabs
+        content = QtWidgets.QWidget()
+        content_layout = QtWidgets.QVBoxLayout(content)
+        content_layout.setContentsMargins(20, 20, 20, 20)
+        content_layout.setSpacing(15)
 
-        self.grid_container = QtWidgets.QWidget()
-        self.grid = QtWidgets.QGridLayout(self.grid_container)
-        self.grid.setSpacing(15)
-
-        self.scroll.setWidget(self.grid_container)
-        v.addWidget(self.scroll)
-
+        # Category tabs
+        self.category_tabs = QtWidgets.QTabWidget()
+        self.category_tabs.setStyleSheet("""
+            QTabWidget::pane {
+                border: none;
+            }
+            QTabBar::tab {
+                background-color: #F5F5F5;
+                color: #666666;
+                padding: 10px 20px;
+                margin-right: 2px;
+                border: 1px solid #E0E0E0;
+                border-bottom: none;
+            }
+            QTabBar::tab:selected {
+                background-color: #FFFFFF;
+                color: #C8937E;
+                border: 1px solid #E0E0E0;
+                border-bottom: 2px solid #C8937E;
+            }
+        """)
+        
+        content_layout.addWidget(self.category_tabs)
+        
         self.status = QtWidgets.QLabel("")
-        v.addWidget(self.status)
+        self.status.setStyleSheet("color: #999999; font-size: 12px;")
+        content_layout.addWidget(self.status)
+
+        main_layout.addWidget(content)
 
         self.products = []
+        self.category_dict = {}
         self.load_products()
 
 
@@ -911,8 +979,76 @@ class UserPanel(QtWidgets.QMainWindow):
     # -------- LOAD PRODUCTS ----------
     def load_products(self):
         self.products = list(product_col.find())
-        self.render_products(self.products)
-        self.status.setText(f"Loaded {len(self.products)} products")
+        self.category_dict = {}
+        
+        # Group products by category
+        for p in self.products:
+            cat = p.get("category", "Other").strip()
+            if cat not in self.category_dict:
+                self.category_dict[cat] = []
+            self.category_dict[cat].append(p)
+        
+        # Clear existing tabs
+        self.category_tabs.clear()
+        
+        # Create tabs for each category
+        for category in sorted(self.category_dict.keys()):
+            products = self.category_dict[category]
+            tab_widget = self.create_category_tab(category, products)
+            self.category_tabs.addTab(tab_widget, category)
+        
+        self.status.setText(f"Loaded {len(self.products)} products across {len(self.category_dict)} categories")
+
+    def create_category_tab(self, category, products):
+        """Create a tab widget for a category with header image and product grid"""
+        container = QtWidgets.QWidget()
+        layout = QtWidgets.QVBoxLayout(container)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        
+        # Category header (use first product's image as banner)
+        if products:
+            header_label = QtWidgets.QLabel(category.upper())
+            header_label.setStyleSheet(f"""
+                background-color: #F5D7C6;
+                color: #333333;
+                padding: 30px;
+                font-size: 18px;
+                font-weight: bold;
+                border-bottom: 2px solid #E0B5A0;
+            """)
+            header_label.setAlignment(QtCore.Qt.AlignCenter)
+            layout.addWidget(header_label)
+        
+        # Scroll area for products
+        scroll = QtWidgets.QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setStyleSheet("QScrollArea { border: none; background-color: #FAFAFA; }")
+        
+        # Product grid container
+        grid_container = QtWidgets.QWidget()
+        grid_container.setStyleSheet("background-color: #FAFAFA;")
+        grid = QtWidgets.QGridLayout(grid_container)
+        grid.setSpacing(15)
+        grid.setContentsMargins(20, 20, 20, 20)
+        
+        # Add products to grid (4 columns)
+        col = 0
+        row = 0
+        for product in products:
+            product_card = self.create_product_card(product)
+            grid.addWidget(product_card, row, col)
+            col += 1
+            if col >= 4:
+                col = 0
+                row += 1
+        
+        grid.addItem(QtWidgets.QSpacerItem(0, 0, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding), row + 1, 0, 1, 4)
+        
+        scroll.setWidget(grid_container)
+        layout.addWidget(scroll)
+        
+        return container
 
     # -------- SEARCH ----------
     def search_products(self):
@@ -926,65 +1062,141 @@ class UserPanel(QtWidgets.QMainWindow):
             if (text in p.get("name","").lower()) or (text in p.get("category","").lower()):
                 results.append(p)
 
-        self.render_products(results)
+        # Create a single tab with search results
+        self.category_tabs.clear()
+        if results:
+            search_tab = self.create_category_tab("Search Results", results)
+            self.category_tabs.addTab(search_tab, f"Search Results ({len(results)})")
+        
         self.status.setText(f"Found {len(results)} products")
 
     # -------- RENDER PRODUCTS ----------
     def render_products(self, products):
-        self.clear_grid()
+        """Legacy method - not used in new design"""
+        pass
 
-        row = col = 0
-        for p in products:
-            card = self.make_card(p)
-            self.grid.addWidget(card, row, col)
-            col += 1
-            if col >= 3:
-                row += 1
-                col = 0
+    # -------- CREATE PRODUCT CARD ----------
+    def create_product_card(self, product):
+        """Create a modern product card with light theme"""
+        card = QtWidgets.QFrame()
+        card.setStyleSheet("""
+            QFrame {
+                background-color: #FFFFFF;
+                border: 1px solid #E8E8E8;
+                border-radius: 4px;
+            }
+            QFrame:hover {
+                border: 1px solid #D0B5A0;
+            }
+        """)
+        card.setFixedSize(260, 350)
 
-    # -------- PRODUCT CARD ----------
-    def make_card(self, p):
-        frame = QtWidgets.QFrame()
-        frame.setFrameShape(QtWidgets.QFrame.StyledPanel)
-        frame.setFixedSize(260, 210)
+        layout = QtWidgets.QVBoxLayout(card)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
 
-        layout = QtWidgets.QVBoxLayout(frame)
-
-        # Image
+        # Image container
+        img_container = QtWidgets.QWidget()
+        img_container.setStyleSheet("background-color: #F5F5F5;")
+        img_layout = QtWidgets.QVBoxLayout(img_container)
+        img_layout.setContentsMargins(0, 0, 0, 0)
+        
         img = QtWidgets.QLabel()
-        img.setFixedHeight(110)
+        img.setFixedHeight(140)
         img.setAlignment(QtCore.Qt.AlignCenter)
 
-        img_name = p.get("image_path", "")
+        img_name = product.get("image_path", "")
         img_full = os.path.join(ASSETS_DIR, img_name)
 
         if img_name and os.path.exists(img_full):
-            pix = QtGui.QPixmap(img_full).scaled(220, 110, QtCore.Qt.KeepAspectRatio)
+            pix = QtGui.QPixmap(img_full).scaled(240, 130, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
             img.setPixmap(pix)
         else:
             img.setText("No image")
+            img.setStyleSheet("color: #CCCCCC;")
 
-        layout.addWidget(img)
+        img_layout.addWidget(img)
+        layout.addWidget(img_container)
 
-        # Name
-        layout.addWidget(QtWidgets.QLabel(f"<b>{p.get('name','')}</b>"))
-        layout.addWidget(QtWidgets.QLabel(f"{p.get('category')} | {p.get('material')}"))
+        # Content area
+        content = QtWidgets.QWidget()
+        content.setStyleSheet("background-color: #FFFFFF;")
+        content_layout = QtWidgets.QVBoxLayout(content)
+        content_layout.setContentsMargins(10, 10, 10, 10)
+        content_layout.setSpacing(5)
 
-        bottom = QtWidgets.QHBoxLayout()
-        bottom.addWidget(QtWidgets.QLabel(f"₹{p.get('price',0)}"))
+        # Product name
+        name_label = QtWidgets.QLabel(product.get('name', ''))
+        name_label.setStyleSheet("font-weight: bold; color: #333333; font-size: 12px;")
+        name_label.setWordWrap(True)
+        content_layout.addWidget(name_label)
 
-        view_btn = QtWidgets.QPushButton("View")
-        view_btn.clicked.connect(lambda: self.open_details(p))
-        bottom.addWidget(view_btn)
-        
+        # Category and material
+        cat_mat = QtWidgets.QLabel(f"{product.get('category', '')} | {product.get('material', '')}")
+        cat_mat.setStyleSheet("color: #999999; font-size: 10px;")
+        content_layout.addWidget(cat_mat)
+
+        # Price
+        price_label = QtWidgets.QLabel(f"₹{product.get('price', 0)}")
+        price_label.setStyleSheet("font-weight: bold; color: #C8937E; font-size: 13px;")
+        content_layout.addWidget(price_label)
+
+        content_layout.addStretch()
+        layout.addWidget(content)
+
+        # Button area
+        button_area = QtWidgets.QWidget()
+        button_area.setStyleSheet("background-color: #FFFFFF;")
+        button_layout = QtWidgets.QVBoxLayout(button_area)
+        button_layout.setContentsMargins(8, 5, 8, 8)
+        button_layout.setSpacing(5)
+
+        # View Details button
+        view_btn = QtWidgets.QPushButton("View Details")
+        view_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #F5D7C6;
+                color: #333333;
+                border: none;
+                border-radius: 3px;
+                padding: 7px;
+                font-weight: bold;
+                font-size: 11px;
+            }
+            QPushButton:hover {
+                background-color: #E8BFB0;
+            }
+        """)
+        view_btn.clicked.connect(lambda: self.open_details(product))
+        button_layout.addWidget(view_btn)
+
+        # Try On button
         tryon_btn = QtWidgets.QPushButton("Try On")
-        tryon_btn.setStyleSheet("background-color: #FF6B9D; color: white;")
-        tryon_btn.clicked.connect(lambda: self.launch_tryon(p))
-        bottom.addWidget(tryon_btn)
+        tryon_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #E8C5C9;
+                color: #333333;
+                border: none;
+                border-radius: 3px;
+                padding: 7px;
+                font-weight: bold;
+                font-size: 11px;
+            }
+            QPushButton:hover {
+                background-color: #DDB5BE;
+            }
+        """)
+        tryon_btn.clicked.connect(lambda: self.launch_tryon(product))
+        button_layout.addWidget(tryon_btn)
 
-        layout.addLayout(bottom)
+        layout.addWidget(button_area)
 
-        return frame
+        return card
+
+    # -------- MAKE CARD (Legacy) ----------
+    def make_card(self, p):
+        """Legacy method - not used in new design"""
+        return self.create_product_card(p)
 
 
     # -------- OPEN DETAILS ----------

@@ -1202,20 +1202,38 @@ class UserPanel(QtWidgets.QMainWindow):
         cat_mat.setStyleSheet("color: #999999; font-size: 10px;")
         content_layout.addWidget(cat_mat)
 
-        # Price
+        # Price and quantity (price on left, qty selector near price)
+        price_row = QtWidgets.QWidget()
+        price_row.setStyleSheet("background: transparent;")
+        price_row_layout = QtWidgets.QHBoxLayout(price_row)
+        price_row_layout.setContentsMargins(0, 0, 0, 0)
+        price_row_layout.setSpacing(8)
+
         price_label = QtWidgets.QLabel(f"₹{product.get('price', 0)}")
         price_label.setStyleSheet("font-weight: bold; color: #C8937E; font-size: 13px;")
-        content_layout.addWidget(price_label)
+        price_row_layout.addWidget(price_label)
+        price_row_layout.addStretch()
 
-        content_layout.addStretch()
+        # Qty spinbox next to price
+        qty_label = QtWidgets.QLabel("Qty:")
+        qty_label.setStyleSheet("color: #666666; font-size:11px;")
+        qty_spin = QtWidgets.QSpinBox()
+        qty_spin.setMinimum(1)
+        qty_spin.setMaximum(99)
+        qty_spin.setValue(1)
+        qty_spin.setFixedWidth(70)
+        price_row_layout.addWidget(qty_label)
+        price_row_layout.addWidget(qty_spin)
+
+        content_layout.addWidget(price_row)
         layout.addWidget(content)
 
         # Button area
         button_area = QtWidgets.QWidget()
         button_area.setStyleSheet("background-color: #FFFFFF;")
         button_layout = QtWidgets.QVBoxLayout(button_area)
-        button_layout.setContentsMargins(8, 5, 8, 8)
-        button_layout.setSpacing(5)
+        button_layout.setContentsMargins(8, 2, 8, 8)
+        button_layout.setSpacing(4)
 
         # View Details button
         view_btn = QtWidgets.QPushButton("View Details")
@@ -1254,23 +1272,6 @@ class UserPanel(QtWidgets.QMainWindow):
         """)
         tryon_btn.clicked.connect(lambda: self.launch_tryon(product))
         button_layout.addWidget(tryon_btn)
-
-        # Quantity selector + Add to Cart button
-        qty_widget = QtWidgets.QWidget()
-        qty_layout = QtWidgets.QHBoxLayout(qty_widget)
-        qty_layout.setContentsMargins(0, 0, 0, 0)
-        qty_layout.setSpacing(6)
-        qty_label = QtWidgets.QLabel("Qty:")
-        qty_label.setStyleSheet("font-size:11px;")
-        qty_spin = QtWidgets.QSpinBox()
-        qty_spin.setMinimum(1)
-        qty_spin.setMaximum(99)
-        qty_spin.setValue(1)
-        qty_spin.setFixedWidth(60)
-        qty_layout.addWidget(qty_label)
-        qty_layout.addWidget(qty_spin)
-        qty_layout.addStretch()
-        button_layout.addWidget(qty_widget)
 
         cart_btn = QtWidgets.QPushButton("Add to Cart")
         cart_btn.setStyleSheet("""

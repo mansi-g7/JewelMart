@@ -770,6 +770,10 @@ from PyQt5 import QtWidgets, QtGui, QtCore
 import sys, os
 from pymongo import MongoClient
 from cart import ShoppingCart, CartDialog
+try:
+    from home_page import HomePage
+except Exception:
+    HomePage = None
 
 # -----------------------
 #  MONGODB CONNECTION
@@ -960,9 +964,12 @@ class UserPanel(QtWidgets.QMainWindow):
             QPushButton { background: transparent; color: #333333; border: none; padding: 6px 10px; font-weight: 600; }
             QPushButton:hover { color: #C8937E; }
         """
-        home_btn = QtWidgets.QPushButton("Home")
-        home_btn.setStyleSheet(nav_btn_style)
-        home_btn.clicked.connect(self.load_products)
+        # Home button (placed right after logo)
+        if HomePage is not None:
+            home_btn = QtWidgets.QPushButton("Home")
+            home_btn.setStyleSheet(nav_btn_style)
+            home_btn.clicked.connect(lambda: self.category_tabs.setCurrentIndex(0))
+            top_row.addWidget(home_btn)
         about_btn = QtWidgets.QPushButton("About Us")
         about_btn.setStyleSheet(nav_btn_style)
         about_btn.clicked.connect(lambda: QtWidgets.QMessageBox.information(self, "About Us", "JewelMart — Luxury Jewelry Store. Welcome!"))
@@ -970,7 +977,6 @@ class UserPanel(QtWidgets.QMainWindow):
         contact_btn.setStyleSheet(nav_btn_style)
         contact_btn.clicked.connect(lambda: QtWidgets.QMessageBox.information(self, "Contact Us", "Email: support@jewelmart.example\nPhone: +1-234-567-8900"))
 
-        top_row.addWidget(home_btn)
         top_row.addWidget(about_btn)
         top_row.addWidget(contact_btn)
         
@@ -1050,6 +1056,8 @@ class UserPanel(QtWidgets.QMainWindow):
         
         content_layout.addWidget(self.category_tabs)
         
+        # (home tab removed) tabs will show categories only
+
         self.status = QtWidgets.QLabel("")
         self.status.setStyleSheet("color: #999999; font-size: 12px;")
         content_layout.addWidget(self.status)
@@ -1087,9 +1095,20 @@ class UserPanel(QtWidgets.QMainWindow):
                 self.category_dict[cat] = []
             self.category_dict[cat].append(p)
         
-        # Clear existing tabs
+        # Clear existing tabs before re-adding categories
         self.category_tabs.clear()
-        
+
+        # Add Home tab first (if available)
+        if HomePage is not None:
+            try:
+                home_widget = HomePage()
+                self.category_tabs.addTab(home_widget, "Home")
+            except Exception:
+                hw = QtWidgets.QWidget()
+                hl = QtWidgets.QVBoxLayout(hw)
+                hl.addWidget(QtWidgets.QLabel("Welcome to JewelMart"))
+                self.category_tabs.addTab(hw, "Home")
+
         # Create tabs for each category
         for category in sorted(self.category_dict.keys()):
             products = self.category_dict[category]
@@ -1161,12 +1180,23 @@ class UserPanel(QtWidgets.QMainWindow):
             if (text in p.get("name","").lower()) or (text in p.get("category","").lower()):
                 results.append(p)
 
-        # Create a single tab with search results
+        # Clear tabs but keep Home tab then show search results
         self.category_tabs.clear()
+        if HomePage is not None:
+            try:
+                home_widget = HomePage()
+                self.category_tabs.addTab(home_widget, "Home")
+            except Exception:
+                hw = QtWidgets.QWidget()
+                hl = QtWidgets.QVBoxLayout(hw)
+                hl.addWidget(QtWidgets.QLabel("Welcome to JewelMart"))
+                self.category_tabs.addTab(hw, "Home")
+
         if results:
             search_tab = self.create_category_tab("Search Results", results)
-            self.category_tabs.addTab(search_tab, f"Search Results ({len(results)})")
-        
+            idx = self.category_tabs.addTab(search_tab, f"Search Results ({len(results)})")
+            self.category_tabs.setCurrentIndex(idx)
+
         self.status.setText(f"Found {len(results)} products")
 
     # -------- RENDER PRODUCTS ----------

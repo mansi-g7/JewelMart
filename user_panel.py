@@ -769,6 +769,7 @@
 from PyQt5 import QtWidgets, QtGui, QtCore
 import sys, os
 from pymongo import MongoClient
+from cart import ShoppingCart, CartDialog
 
 # -----------------------
 #  MONGODB CONNECTION
@@ -789,6 +790,10 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ASSETS_DIR = os.path.join(BASE_DIR, "assets")
 
 
+
+# -----------------------
+# SHOPPING CART DIALOG
+# -----------------------
 
 # -----------------------
 # PRODUCT DETAILS POPUP
@@ -858,10 +863,14 @@ class ProductDetails(QtWidgets.QDialog):
 # MAIN USER PANEL WINDOW
 # -----------------------
 class UserPanel(QtWidgets.QMainWindow):
-    def __init__(self):
+    def __init__(self, user_id="guest"):
         super().__init__()
         self.setWindowTitle("JewelMart — Luxury Jewelry Store")
         self.resize(1200, 800)
+        self.user_id = user_id
+        
+        # Initialize shopping cart with user ID
+        self.cart = ShoppingCart(user_id=user_id)
         
         # Light theme stylesheet
         self.setStyleSheet("""
@@ -918,10 +927,26 @@ class UserPanel(QtWidgets.QMainWindow):
         search_btn.clicked.connect(self.search_products)
         refresh_btn = QtWidgets.QPushButton("Refresh")
         refresh_btn.clicked.connect(self.load_products)
+        cart_btn = QtWidgets.QPushButton("🛒 View Cart")
+        cart_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #C8937E;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                padding: 8px 16px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #B5845E;
+            }
+        """)
+        cart_btn.clicked.connect(self.open_cart)
         
         search_layout.addWidget(self.search)
         search_layout.addWidget(search_btn)
         search_layout.addWidget(refresh_btn)
+        search_layout.addWidget(cart_btn)
         search_layout.addStretch()
         header_layout.addLayout(search_layout)
 
@@ -1195,6 +1220,25 @@ class UserPanel(QtWidgets.QMainWindow):
         tryon_btn.clicked.connect(lambda: self.launch_tryon(product))
         button_layout.addWidget(tryon_btn)
 
+        # Add to Cart button
+        cart_btn = QtWidgets.QPushButton("Add to Cart")
+        cart_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #B8D4E8;
+                color: #333333;
+                border: none;
+                border-radius: 3px;
+                padding: 7px;
+                font-weight: bold;
+                font-size: 11px;
+            }
+            QPushButton:hover {
+                background-color: #A0C8E0;
+            }
+        """)
+        cart_btn.clicked.connect(lambda: self.add_to_cart(product))
+        button_layout.addWidget(cart_btn)
+
         layout.addWidget(button_area)
 
         return card
@@ -1216,10 +1260,25 @@ class UserPanel(QtWidgets.QMainWindow):
         try:
             from tryon.run import run_tryon
             run_tryon(product)
-        except ImportError:
-            QtWidgets.QMessageBox.warning(self, "Error", "Try-on feature not available. Missing tryon module.")
+        except (ImportError, ModuleNotFoundError):
+            QtWidgets.QMessageBox.information(self, "Try-On Coming Soon", 
+                f"Virtual try-on for '{product.get('name')}' is coming soon!\n\n"
+                "This feature is under development. Please check back later.")
         except Exception as e:
             QtWidgets.QMessageBox.critical(self, "Error", f"Try-on failed: {str(e)}")
+
+    # -------- ADD TO CART ----------
+    def add_to_cart(self, product):
+        """Add a product to the shopping cart."""
+        qty = self.cart.add_item(product)
+        QtWidgets.QMessageBox.information(self, "Added to Cart", 
+            f"'{product.get('name')}' has been added to your cart! (Qty: {qty})")
+
+    # -------- VIEW CART ----------
+    def open_cart(self):
+        """Open the shopping cart dialog."""
+        dlg = CartDialog(self.cart, self)
+        dlg.exec_()
 
 
 def main():

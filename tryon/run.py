@@ -65,14 +65,22 @@ def load_product_overlay(product, desired_width=None):
     """Load overlay image (with alpha) for the product. Returns BGRA numpy array or None."""
     # Prefer image_path
     img_path = product.get("image_path")
-    if img_path and os.path.exists(img_path):
-        img = cv2.imread(img_path, cv2.IMREAD_UNCHANGED)
-        if img is None:
-            return None
-        # ensure BGRA
-        if img.shape[2] == 3:
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2BGRA)
-        return img
+    if img_path:
+        # If it's just a filename, look for it in assets directory
+        if not os.path.isabs(img_path):
+            assets_dir = os.path.join(os.path.dirname(__file__), '..', 'assets')
+            full_path = os.path.join(assets_dir, img_path)
+        else:
+            full_path = img_path
+            
+        if os.path.exists(full_path):
+            img = cv2.imread(full_path, cv2.IMREAD_UNCHANGED)
+            if img is None:
+                return None
+            # ensure BGRA
+            if img.shape[2] == 3:
+                img = cv2.cvtColor(img, cv2.COLOR_BGR2BGRA)
+            return img
 
     # fallback to base64 image in product['image']
     b64 = product.get("image")
@@ -162,14 +170,24 @@ def run_tryon(product):
                 for lm in landmarks.landmark:
                     pts.append((int(lm.x * w), int(lm.y * h)))
 
-                # Some commonly useful indices from MediaPipe Face Mesh
-                # chin: 152, forehead/top: 10, left_ear-ish: 234, right_ear-ish: 454
+                # MediaPipe Face Mesh landmark indices:
+                # chin: 152 (tip of chin)
+                # nose: 1 (tip of nose)
+                # forehead/top: 10 (upper forehead)
+                # left ear lobe: 234 (bottom of left ear)
+                # right ear lobe: 454 (bottom of right ear)
+                # neck center: use chin + offset downward
+                # throat area for necklace: around 152-170 range (lower neck)
                 chin = pts[152] if len(pts) > 152 else None
                 forehead = pts[10] if len(pts) > 10 else None
+                
+                # Better ear lobe positions for earrings (earlobe area)
+                left_earlobe = pts[234] if len(pts) > 234 else None  # bottom of left ear
+                right_earlobe = pts[454] if len(pts) > 454 else None  # bottom of right ear
+                
+                # Neck reference points
                 left_jaw = pts[234] if len(pts) > 234 else None
                 right_jaw = pts[454] if len(pts) > 454 else None
-                left_ear = pts[127] if len(pts) > 127 else None
-                right_ear = pts[356] if len(pts) > 356 else None
 
                 # face width approx
                 if left_jaw and right_jaw:
@@ -182,31 +200,36 @@ def run_tryon(product):
                 category = (product.get('category') or '').lower()
 
                 if 'necklace' in category:
-                    # overlay centered below chin; scale overlay width to ~1.1 * face_w
+                    # overlay centered on neck (lower than chin)
                     if chin:
-                        target_w = int(1.1 * face_w)
+                        target_w = int(1.0 * face_w)
                         scale = target_w / overlay.shape[1]
                         new_h = max(1, int(overlay.shape[0] * scale))
                         resized = cv2.resize(overlay, (target_w, new_h), interpolation=cv2.INTER_AREA)
                         x = int(chin[0] - target_w / 2)
-                        y = int(chin[1] + 10)
+                        # Position on neck area (below chin, not on chin itself)
+                        y = int(chin[1] + int(face_w * 0.15))  # Offset down to neck area
                         frame = overlay_transparent(frame, resized, x, y)
 
                 elif 'earring' in category or 'ear' in category:
-                    # overlay earrings at ear positions (larger size, positioned at ear lobe)
-                    target_w = int(face_w * 0.55)  # Much larger earrings
+                    # overlay earrings at ear lobe positions
+                    target_w = int(face_w * 0.475)  # Increased from 0.25 (90% larger: 0.25 * 1.9 = 0.475)
                     scale = target_w / overlay.shape[1]
                     new_h = max(1, int(overlay.shape[0] * scale))
                     resized = cv2.resize(overlay, (target_w, new_h), interpolation=cv2.INTER_AREA)
-                    if left_ear:
-                        x = int(left_ear[0] - target_w / 2)
-                        # Position below ear, not above (add offset downward)
-                        y = int(left_ear[1] + new_h * 0.3)
+                    
+                    # Left earring
+                    if left_earlobe:
+                        x = int(left_earlobe[0] - target_w / 2)
+                        # Position at earlobe (not above ear, at bottom of ear)
+                        y = int(left_earlobe[1] - new_h * 0.2)
                         frame = overlay_transparent(frame, resized, x, y)
-                    if right_ear:
-                        x = int(right_ear[0] - target_w / 2)
-                        # Position below ear, not above (add offset downward)
-                        y = int(right_ear[1] + new_h * 0.3)
+                    
+                    # Right earring (mirror the left earring)
+                    if right_earlobe:
+                        x = int(right_earlobe[0] - target_w / 2)
+                        # Position at earlobe
+                        y = int(right_earlobe[1] - new_h * 0.2)
                         # flip horizontally for right ear
                         flipped = cv2.flip(resized, 1)
                         frame = overlay_transparent(frame, flipped, x, y)

@@ -24,10 +24,6 @@ except Exception as e:
 
 
 
-
-
-
-
 client = MongoClient("mongodb://localhost:27017/")
 db = client["JewelMart"]
 product_col = db["jewel_add"]     # <-- your real collection name

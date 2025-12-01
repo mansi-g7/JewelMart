@@ -8,15 +8,21 @@
 # from pymongo import MongoClient
 # from database import DEFAULT_URI   # <-- FIXED
 
+from database import DB_URI
 from pymongo import MongoClient
-from database import DEFAULT_URI   # <-- REQUIRED IMPORT
 import tkinter as tk
 from tkinter import ttk
 
-def get_admin_db(uri: str = DEFAULT_URI):
+
+def get_admin_db(uri: str = DB_URI):
     client = MongoClient(uri)
-    db = client["JewelMart"]        # database name
-    return db["admin"]              # admin namespace collection
+    db = client["JewelMart"]
+    return db["admin"]
+
+# def get_admin_db(uri: str = DEFAULT_URI):
+#     client = MongoClient(uri)
+#     db = client["JewelMart"]        # database name
+#     return db["admin"]              # admin namespace collection
 
 
 class AdminDashboard(tk.Tk):

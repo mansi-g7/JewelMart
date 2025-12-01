@@ -68,23 +68,24 @@ class ShoppingCart:
         except Exception as e:
             print(f"Error saving cart to DB: {e}")
     
-    def add_item(self, product):
-        """Add a product to the cart. If already exists, increment qty."""
+    def add_item(self, product, qty=1):
+        """Add a product to the cart with given quantity. If already exists, increment qty."""
+        qty = max(1, int(qty))
         for item in self.items:
             if item.get('id') == product.get('id'):
-                item['qty'] += 1
+                item['qty'] = item.get('qty', 0) + qty
                 self.save_to_db()
                 return item['qty']
-        
+
         # New item
         self.items.append({
             'id': product.get('id'),
             'name': product.get('name'),
             'price': product.get('price'),
-            'qty': 1
+            'qty': qty
         })
         self.save_to_db()
-        return 1
+        return qty
     
     def remove_item(self, idx):
         """Remove item at index."""

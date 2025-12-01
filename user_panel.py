@@ -841,11 +841,27 @@ class ProductDetails(QtWidgets.QDialog):
         try_on_btn.setStyleSheet("background-color: #FF6B9D; color: white; font-weight: bold;")
         try_on_btn.clicked.connect(lambda: self.try_on_product(product))
         btn_layout.addWidget(try_on_btn)
-        
+
+        # Quantity selector and Add to Cart in product details
+        qty_lbl = QtWidgets.QLabel("Qty:")
+        qty_lbl.setStyleSheet("font-size:11px; margin-left:8px;")
+        qty_spin = QtWidgets.QSpinBox()
+        qty_spin.setMinimum(1)
+        qty_spin.setMaximum(99)
+        qty_spin.setValue(1)
+        qty_spin.setFixedWidth(70)
+        btn_layout.addWidget(qty_lbl)
+        btn_layout.addWidget(qty_spin)
+
+        add_cart_btn = QtWidgets.QPushButton("Add to Cart")
+        add_cart_btn.setStyleSheet("background-color: #B8D4E8; color: #333333; font-weight: bold;")
+        add_cart_btn.clicked.connect(lambda: self.add_and_close(product, qty_spin.value()))
+        btn_layout.addWidget(add_cart_btn)
+
         close_btn = QtWidgets.QPushButton("Close")
         close_btn.clicked.connect(self.close)
         btn_layout.addWidget(close_btn)
-        
+
         layout.addLayout(btn_layout)
 
     def try_on_product(self, product):
@@ -857,6 +873,25 @@ class ProductDetails(QtWidgets.QDialog):
             QtWidgets.QMessageBox.warning(self, "Error", "Try-on feature not available. Missing tryon module.")
         except Exception as e:
             QtWidgets.QMessageBox.critical(self, "Error", f"Try-on failed: {str(e)}")
+
+    def add_and_close(self, product, qty):
+        """Add the product with selected qty to cart, then close dialog."""
+        parent = self.parent()
+        try:
+            if parent and hasattr(parent, 'add_to_cart'):
+                parent.add_to_cart(product, qty)
+            else:
+                # fallback: try direct cart attribute
+                cart = getattr(parent, 'cart', None)
+                if cart:
+                    cart.add_item(product, qty)
+                    QtWidgets.QMessageBox.information(self, "Added to Cart", f"Added {qty} x {product.get('name')}")
+                else:
+                    QtWidgets.QMessageBox.warning(self, "Cart Missing", "No cart available to add items.")
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(self, "Add to Cart Failed", f"Could not add item to cart: {e}")
+        finally:
+            self.accept()
 
 
 # -----------------------
@@ -1220,7 +1255,23 @@ class UserPanel(QtWidgets.QMainWindow):
         tryon_btn.clicked.connect(lambda: self.launch_tryon(product))
         button_layout.addWidget(tryon_btn)
 
-        # Add to Cart button
+        # Quantity selector + Add to Cart button
+        qty_widget = QtWidgets.QWidget()
+        qty_layout = QtWidgets.QHBoxLayout(qty_widget)
+        qty_layout.setContentsMargins(0, 0, 0, 0)
+        qty_layout.setSpacing(6)
+        qty_label = QtWidgets.QLabel("Qty:")
+        qty_label.setStyleSheet("font-size:11px;")
+        qty_spin = QtWidgets.QSpinBox()
+        qty_spin.setMinimum(1)
+        qty_spin.setMaximum(99)
+        qty_spin.setValue(1)
+        qty_spin.setFixedWidth(60)
+        qty_layout.addWidget(qty_label)
+        qty_layout.addWidget(qty_spin)
+        qty_layout.addStretch()
+        button_layout.addWidget(qty_widget)
+
         cart_btn = QtWidgets.QPushButton("Add to Cart")
         cart_btn.setStyleSheet("""
             QPushButton {
@@ -1236,7 +1287,7 @@ class UserPanel(QtWidgets.QMainWindow):
                 background-color: #A0C8E0;
             }
         """)
-        cart_btn.clicked.connect(lambda: self.add_to_cart(product))
+        cart_btn.clicked.connect(lambda _, p=product, q=qty_spin: self.add_to_cart(p, q.value()))
         button_layout.addWidget(cart_btn)
 
         layout.addWidget(button_area)
@@ -1268,11 +1319,14 @@ class UserPanel(QtWidgets.QMainWindow):
             QtWidgets.QMessageBox.critical(self, "Error", f"Try-on failed: {str(e)}")
 
     # -------- ADD TO CART ----------
-    def add_to_cart(self, product):
-        """Add a product to the shopping cart."""
-        qty = self.cart.add_item(product)
-        QtWidgets.QMessageBox.information(self, "Added to Cart", 
-            f"'{product.get('name')}' has been added to your cart! (Qty: {qty})")
+    def add_to_cart(self, product, qty=1):
+        """Add a product to the shopping cart with specified quantity."""
+        try:
+            new_qty = self.cart.add_item(product, qty)
+            QtWidgets.QMessageBox.information(self, "Added to Cart", 
+                f"'{product.get('name')}' has been added to your cart! (Added Qty: {qty}, Total Qty: {new_qty})")
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(self, "Cart Error", f"Failed to add to cart: {e}")
 
     # -------- VIEW CART ----------
     def open_cart(self):

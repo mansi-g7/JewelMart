@@ -54,6 +54,40 @@ class ProductDialog(QtWidgets.QDialog):
         self.resize(450, 420)
         self._product = product or {}
         self._image_path = ""
+        
+        # Light theme stylesheet
+        self.setStyleSheet("""
+            QDialog {
+                background-color: #FAFAFA;
+            }
+            QLineEdit {
+                border: 1px solid #E0E0E0;
+                border-radius: 4px;
+                padding: 8px;
+                background-color: #FFFFFF;
+                color: #333333;
+            }
+            QTextEdit {
+                border: 1px solid #E0E0E0;
+                border-radius: 4px;
+                background-color: #FFFFFF;
+                color: #333333;
+            }
+            QPushButton {
+                background-color: #F5D7C6;
+                color: #333333;
+                border: none;
+                border-radius: 4px;
+                padding: 8px 16px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #E8BFB0;
+            }
+            QLabel {
+                color: #333333;
+            }
+        """)
 
         layout = QtWidgets.QFormLayout(self)
 
@@ -116,9 +150,42 @@ class OrderDetailDialog(QtWidgets.QDialog):
         super().__init__(parent)
         self.setWindowTitle(f"Order {order_doc.get('order_id')}")
         self.resize(700, 480)
+        
+        # Light theme stylesheet
+        self.setStyleSheet("""
+            QDialog {
+                background-color: #FAFAFA;
+            }
+            QTableWidget {
+                background-color: #FFFFFF;
+                border: 1px solid #E0E0E0;
+            }
+            QHeaderView::section {
+                background-color: #F5F5F5;
+                color: #333333;
+                padding: 5px;
+                border: none;
+                border-right: 1px solid #E0E0E0;
+                border-bottom: 1px solid #E0E0E0;
+            }
+            QTableWidget::item {
+                padding: 5px;
+                color: #333333;
+            }
+            QTextEdit {
+                background-color: #FFFFFF;
+                border: 1px solid #E0E0E0;
+                color: #333333;
+            }
+            QLabel {
+                color: #333333;
+            }
+        """)
+        
         layout = QtWidgets.QVBoxLayout(self)
 
         header = QtWidgets.QLabel(f"<b>Order ID:</b> {order_doc.get('order_id')} &nbsp;&nbsp; <b>User:</b> {order_doc.get('user')} &nbsp;&nbsp; <b>Status:</b> {order_doc.get('status')}")
+        header.setStyleSheet("color: #333333; font-size: 12px;")
         layout.addWidget(header)
 
         self.items_table = QtWidgets.QTableWidget(0, 4)
@@ -127,6 +194,7 @@ class OrderDetailDialog(QtWidgets.QDialog):
         layout.addWidget(self.items_table)
 
         total_lbl = QtWidgets.QLabel(f"Total: ₹{order_doc.get('total', order_doc.get('total_amount', 0))}")
+        total_lbl.setStyleSheet("color: #C8937E; font-weight: bold; font-size: 13px;")
         layout.addWidget(total_lbl)
 
         # shipping / meta
@@ -160,10 +228,10 @@ class OrderDetailDialog(QtWidgets.QDialog):
 class AdminMainWindow(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("JewelMart — Admin")
+        self.setWindowTitle("JewelMart — Admin Dashboard")
         self.resize(1200, 760)
 
-        # Collections
+        # Collections - Fresh connection each time
         self.users_coll = get_users_collection()
         self.products_coll = get_products_collection()
         self.orders_coll = get_orders_collection()
@@ -172,41 +240,65 @@ class AdminMainWindow(QtWidgets.QMainWindow):
         central = QtWidgets.QWidget()
         self.setCentralWidget(central)
         main_h = QtWidgets.QHBoxLayout(central)
+        main_h.setContentsMargins(0, 0, 0, 0)
+        main_h.setSpacing(0)
 
-        # Left sidebar (dark)
+        # Left sidebar (light theme)
         sidebar = QtWidgets.QFrame()
         sidebar.setFixedWidth(220)
         sidebar.setStyleSheet("""
-            QFrame { background: #222; color: #EEE; }
-            QPushButton { background: transparent; color: #DDD; border: none; text-align: left; padding: 10px; font-size: 14px; }
-            QPushButton:hover { background: #333; }
-            QPushButton:checked { background: #444; color: white; font-weight: 700; }
-            QLabel#title { color: white; font-size: 18px; font-weight: 700; padding: 12px; }
+            QFrame { background: #F5F5F5; color: #333333; border-right: 1px solid #E0E0E0; }
+            QPushButton { 
+                background: transparent; 
+                color: #666666; 
+                border: none; 
+                text-align: left; 
+                padding: 10px 15px; 
+                font-size: 13px;
+                font-weight: 500;
+            }
+            QPushButton:hover { 
+                background: #EEEEEE; 
+                color: #333333;
+            }
+            QPushButton:checked { 
+                background: #F5D7C6; 
+                color: #C8937E; 
+                font-weight: 700;
+                border-left: 4px solid #C8937E;
+                padding-left: 11px;
+            }
+            QLabel#title { 
+                color: #C8937E; 
+                font-size: 16px; 
+                font-weight: 700; 
+                padding: 15px; 
+            }
         """)
         side_layout = QtWidgets.QVBoxLayout(sidebar)
         side_layout.setContentsMargins(0, 0, 0, 0)
+        side_layout.setSpacing(0)
 
-        title = QtWidgets.QLabel("JewelMart Admin")
+        title = QtWidgets.QLabel("✨ JewelMart Admin")
         title.setObjectName("title")
         side_layout.addWidget(title)
+        
+        # Divider
+        divider = QtWidgets.QFrame()
+        divider.setStyleSheet("background-color: #E0E0E0; height: 1px;")
+        divider.setMaximumHeight(1)
+        side_layout.addWidget(divider)
 
         # Sidebar buttons
-        self.btn_dashboard = QtWidgets.QPushButton("  Dashboard")
-        self.btn_products = QtWidgets.QPushButton("  Products")
-        self.btn_orders = QtWidgets.QPushButton("  Orders")
-        self.btn_users = QtWidgets.QPushButton("  Users")
-        self.btn_logout = QtWidgets.QPushButton("  Logout")
+        self.btn_dashboard = QtWidgets.QPushButton("📊 Dashboard")
+        self.btn_products = QtWidgets.QPushButton("📦 Products")
+        self.btn_orders = QtWidgets.QPushButton("🧾 Orders")
+        self.btn_users = QtWidgets.QPushButton("👤 Users")
+        self.btn_logout = QtWidgets.QPushButton("🚪 Logout")
 
         # Make them checkable to show active
         for b in (self.btn_dashboard, self.btn_products, self.btn_orders, self.btn_users):
             b.setCheckable(True)
-
-        # set icons (simple text icons)
-        self.btn_dashboard.setIcon(make_icon("🏠"))
-        self.btn_products.setIcon(make_icon("📦"))
-        self.btn_orders.setIcon(make_icon("🧾"))
-        self.btn_users.setIcon(make_icon("👤"))
-        self.btn_logout.setIcon(make_icon("🚪"))
 
         # Connect
         self.btn_dashboard.clicked.connect(lambda: self.switch_page("dashboard"))
@@ -227,6 +319,7 @@ class AdminMainWindow(QtWidgets.QMainWindow):
 
         # Right area (stacked pages)
         self.stack = QtWidgets.QStackedWidget()
+        self.stack.setStyleSheet("background-color: #FAFAFA;")
         main_h.addWidget(self.stack, 1)
 
         # Pages
@@ -248,8 +341,40 @@ class AdminMainWindow(QtWidgets.QMainWindow):
     # ------------------------
     def make_dashboard_page(self):
         w = QtWidgets.QWidget()
+        w.setStyleSheet("""
+            QWidget { background-color: #FAFAFA; }
+            QLabel { color: #333333; }
+            QPushButton {
+                background-color: #F5D7C6;
+                color: #333333;
+                border: none;
+                border-radius: 4px;
+                padding: 8px 16px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #E8BFB0;
+            }
+            QListWidget {
+                background-color: #FFFFFF;
+                border: 1px solid #E0E0E0;
+                border-radius: 4px;
+                color: #333333;
+            }
+            QListWidget::item {
+                padding: 8px;
+                border-bottom: 1px solid #F0F0F0;
+            }
+            QListWidget::item:selected {
+                background-color: #F5D7C6;
+                color: #333333;
+            }
+        """)
         layout = QtWidgets.QVBoxLayout(w)
-        header = QtWidgets.QLabel("<h2>Dashboard</h2>")
+        layout.setContentsMargins(20, 20, 20, 20)
+        
+        header = QtWidgets.QLabel("Dashboard")
+        header.setStyleSheet("font-size: 24px; font-weight: bold; color: #C8937E;")
         layout.addWidget(header)
 
         # stats area
@@ -257,14 +382,28 @@ class AdminMainWindow(QtWidgets.QMainWindow):
         self.stat_products = QtWidgets.QLabel("Products: 0")
         self.stat_users = QtWidgets.QLabel("Users: 0")
         self.stat_orders = QtWidgets.QLabel("Orders: 0")
+        
+        stat_style = """
+            background-color: #FFFFFF;
+            border: 1px solid #E0E0E0;
+            border-radius: 4px;
+            padding: 15px;
+            font-size: 14px;
+            color: #333333;
+            font-weight: 500;
+        """
+        
         for lbl in (self.stat_products, self.stat_users, self.stat_orders):
-            lbl.setStyleSheet("font-size:16px; padding:8px;")
+            lbl.setStyleSheet(stat_style)
             stats_h.addWidget(lbl)
         stats_h.addStretch()
         layout.addLayout(stats_h)
 
         # recent orders
-        layout.addWidget(QtWidgets.QLabel("<b>Recent Orders</b>"))
+        recent_label = QtWidgets.QLabel("Recent Orders")
+        recent_label.setStyleSheet("font-size: 14px; font-weight: bold; color: #333333; margin-top: 10px;")
+        layout.addWidget(recent_label)
+        
         self.recent_orders_list = QtWidgets.QListWidget()
         layout.addWidget(self.recent_orders_list, 1)
 
@@ -300,7 +439,50 @@ class AdminMainWindow(QtWidgets.QMainWindow):
     # ------------------------
     def make_products_page(self):
         w = QtWidgets.QWidget()
+        w.setStyleSheet("""
+            QWidget { background-color: #FAFAFA; }
+            QLineEdit {
+                border: 1px solid #E0E0E0;
+                border-radius: 4px;
+                padding: 8px;
+                background-color: #FFFFFF;
+                color: #333333;
+            }
+            QPushButton {
+                background-color: #F5D7C6;
+                color: #333333;
+                border: none;
+                border-radius: 4px;
+                padding: 8px 16px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #E8BFB0;
+            }
+            QListWidget {
+                background-color: #FFFFFF;
+                border: 1px solid #E0E0E0;
+                border-radius: 4px;
+                color: #333333;
+            }
+            QListWidget::item {
+                padding: 8px;
+                border-bottom: 1px solid #F0F0F0;
+            }
+            QListWidget::item:selected {
+                background-color: #F5D7C6;
+                color: #333333;
+            }
+            QTextEdit {
+                background-color: #FFFFFF;
+                border: 1px solid #E0E0E0;
+                border-radius: 4px;
+                color: #333333;
+            }
+            QLabel { color: #333333; }
+        """)
         v = QtWidgets.QVBoxLayout(w)
+        v.setContentsMargins(20, 20, 20, 20)
 
         top_h = QtWidgets.QHBoxLayout()
         self.prod_search = QtWidgets.QLineEdit()
@@ -308,11 +490,14 @@ class AdminMainWindow(QtWidgets.QMainWindow):
         self.prod_search.returnPressed.connect(self.load_products)
         btn_search = QtWidgets.QPushButton("Search")
         btn_search.clicked.connect(self.load_products)
-        btn_add = QtWidgets.QPushButton("Add Product")
+        btn_refresh = QtWidgets.QPushButton("🔄 Refresh")
+        btn_refresh.clicked.connect(self.load_products)
+        btn_add = QtWidgets.QPushButton("+ Add Product")
         btn_add.clicked.connect(self.add_product)
 
         top_h.addWidget(self.prod_search)
         top_h.addWidget(btn_search)
+        top_h.addWidget(btn_refresh)
         top_h.addWidget(btn_add)
         v.addLayout(top_h)
 
@@ -351,8 +536,10 @@ class AdminMainWindow(QtWidgets.QMainWindow):
             q = {"$or": [{"name": {"$regex": q_text, "$options": "i"}}, {"category": {"$regex": q_text, "$options": "i"}}]}
         try:
             docs = list(self.products_coll.find(q).sort("id", 1))
-        except Exception:
+            print(f"Loaded {len(docs)} products from database")  # Debug output
+        except Exception as e:
             docs = []
+            print(f"Error loading products: {e}")  # Debug output
         self._products_cache = docs
         for p in docs:
             item = QtWidgets.QListWidgetItem(p.get("name", "(no name)"))
@@ -407,10 +594,12 @@ class AdminMainWindow(QtWidgets.QMainWindow):
             "image_path": img_name
         }
         try:
-            self.products_coll.insert_one(doc)
-            QtWidgets.QMessageBox.information(self, "Saved", "Product added.")
+            result = self.products_coll.insert_one(doc)
+            print(f"Product inserted with ID: {result.inserted_id}")  # Debug output
+            QtWidgets.QMessageBox.information(self, "Saved", f"Product added (ID: {new_id})")
         except Exception as e:
             QtWidgets.QMessageBox.critical(self, "DB Error", f"Failed to add product: {e}")
+            print(f"DB Error: {e}")  # Debug output
         self.load_products()
 
     def edit_product(self):
@@ -473,7 +662,65 @@ class AdminMainWindow(QtWidgets.QMainWindow):
     # ------------------------
     def make_orders_page(self):
         w = QtWidgets.QWidget()
+        w.setStyleSheet("""
+            QWidget { background-color: #FAFAFA; }
+            QLineEdit {
+                border: 1px solid #E0E0E0;
+                border-radius: 4px;
+                padding: 8px;
+                background-color: #FFFFFF;
+                color: #333333;
+            }
+            QComboBox {
+                border: 1px solid #E0E0E0;
+                border-radius: 4px;
+                padding: 8px;
+                background-color: #FFFFFF;
+                color: #333333;
+            }
+            QPushButton {
+                background-color: #F5D7C6;
+                color: #333333;
+                border: none;
+                border-radius: 4px;
+                padding: 8px 16px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #E8BFB0;
+            }
+            QTableWidget {
+                background-color: #FFFFFF;
+                border: 1px solid #E0E0E0;
+                border-radius: 4px;
+                color: #333333;
+            }
+            QHeaderView::section {
+                background-color: #F5F5F5;
+                color: #333333;
+                padding: 5px;
+                border: none;
+                border-right: 1px solid #E0E0E0;
+                border-bottom: 1px solid #E0E0E0;
+            }
+            QTableWidget::item {
+                padding: 5px;
+                color: #333333;
+            }
+            QTableWidget::item:selected {
+                background-color: #F5D7C6;
+                color: #333333;
+            }
+            QTextEdit {
+                background-color: #FFFFFF;
+                border: 1px solid #E0E0E0;
+                border-radius: 4px;
+                color: #333333;
+            }
+            QLabel { color: #333333; }
+        """)
         v = QtWidgets.QVBoxLayout(w)
+        v.setContentsMargins(20, 20, 20, 20)
 
         top_h = QtWidgets.QHBoxLayout()
         self.order_search = QtWidgets.QLineEdit()
@@ -622,7 +869,52 @@ class AdminMainWindow(QtWidgets.QMainWindow):
     # ------------------------
     def make_users_page(self):
         w = QtWidgets.QWidget()
+        w.setStyleSheet("""
+            QWidget { background-color: #FAFAFA; }
+            QLineEdit {
+                border: 1px solid #E0E0E0;
+                border-radius: 4px;
+                padding: 8px;
+                background-color: #FFFFFF;
+                color: #333333;
+            }
+            QPushButton {
+                background-color: #F5D7C6;
+                color: #333333;
+                border: none;
+                border-radius: 4px;
+                padding: 8px 16px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #E8BFB0;
+            }
+            QTableWidget {
+                background-color: #FFFFFF;
+                border: 1px solid #E0E0E0;
+                border-radius: 4px;
+                color: #333333;
+            }
+            QHeaderView::section {
+                background-color: #F5F5F5;
+                color: #333333;
+                padding: 5px;
+                border: none;
+                border-right: 1px solid #E0E0E0;
+                border-bottom: 1px solid #E0E0E0;
+            }
+            QTableWidget::item {
+                padding: 5px;
+                color: #333333;
+            }
+            QTableWidget::item:selected {
+                background-color: #F5D7C6;
+                color: #333333;
+            }
+            QLabel { color: #333333; }
+        """)
         v = QtWidgets.QVBoxLayout(w)
+        v.setContentsMargins(20, 20, 20, 20)
 
         top_h = QtWidgets.QHBoxLayout()
         self.user_search = QtWidgets.QLineEdit()
@@ -667,6 +959,28 @@ class AdminMainWindow(QtWidgets.QMainWindow):
         dlg = QtWidgets.QDialog(self)
         dlg.setWindowTitle("User Details")
         dlg.resize(420, 320)
+        dlg.setStyleSheet("""
+            QDialog {
+                background-color: #FAFAFA;
+            }
+            QTextEdit {
+                background-color: #FFFFFF;
+                border: 1px solid #E0E0E0;
+                color: #333333;
+            }
+            QPushButton {
+                background-color: #F5D7C6;
+                color: #333333;
+                border: none;
+                border-radius: 4px;
+                padding: 8px 16px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #E8BFB0;
+            }
+            QLabel { color: #333333; }
+        """)
         layout = QtWidgets.QVBoxLayout(dlg)
         layout.addWidget(QtWidgets.QLabel(f"Email: {u.get('email','')}"))
         layout.addWidget(QtWidgets.QLabel(f"Name: {u.get('name','')}"))
@@ -744,3 +1058,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

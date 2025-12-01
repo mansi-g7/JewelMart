@@ -978,7 +978,13 @@ class UserPanel(QtWidgets.QMainWindow):
 
     # -------- LOAD PRODUCTS ----------
     def load_products(self):
-        self.products = list(product_col.find())
+        # Always fetch fresh data from database
+        try:
+            self.products = list(product_col.find())
+        except Exception as e:
+            print(f"Error loading products: {e}")
+            self.products = []
+        
         self.category_dict = {}
         
         # Group products by category

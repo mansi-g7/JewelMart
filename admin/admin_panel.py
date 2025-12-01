@@ -231,7 +231,7 @@ class AdminMainWindow(QtWidgets.QMainWindow):
         self.setWindowTitle("JewelMart — Admin Dashboard")
         self.resize(1200, 760)
 
-        # Collections
+        # Collections - Fresh connection each time
         self.users_coll = get_users_collection()
         self.products_coll = get_products_collection()
         self.orders_coll = get_orders_collection()
@@ -490,11 +490,14 @@ class AdminMainWindow(QtWidgets.QMainWindow):
         self.prod_search.returnPressed.connect(self.load_products)
         btn_search = QtWidgets.QPushButton("Search")
         btn_search.clicked.connect(self.load_products)
+        btn_refresh = QtWidgets.QPushButton("🔄 Refresh")
+        btn_refresh.clicked.connect(self.load_products)
         btn_add = QtWidgets.QPushButton("+ Add Product")
         btn_add.clicked.connect(self.add_product)
 
         top_h.addWidget(self.prod_search)
         top_h.addWidget(btn_search)
+        top_h.addWidget(btn_refresh)
         top_h.addWidget(btn_add)
         v.addLayout(top_h)
 
@@ -533,8 +536,10 @@ class AdminMainWindow(QtWidgets.QMainWindow):
             q = {"$or": [{"name": {"$regex": q_text, "$options": "i"}}, {"category": {"$regex": q_text, "$options": "i"}}]}
         try:
             docs = list(self.products_coll.find(q).sort("id", 1))
-        except Exception:
+            print(f"Loaded {len(docs)} products from database")  # Debug output
+        except Exception as e:
             docs = []
+            print(f"Error loading products: {e}")  # Debug output
         self._products_cache = docs
         for p in docs:
             item = QtWidgets.QListWidgetItem(p.get("name", "(no name)"))
@@ -589,10 +594,12 @@ class AdminMainWindow(QtWidgets.QMainWindow):
             "image_path": img_name
         }
         try:
-            self.products_coll.insert_one(doc)
-            QtWidgets.QMessageBox.information(self, "Saved", "Product added.")
+            result = self.products_coll.insert_one(doc)
+            print(f"Product inserted with ID: {result.inserted_id}")  # Debug output
+            QtWidgets.QMessageBox.information(self, "Saved", f"Product added (ID: {new_id})")
         except Exception as e:
             QtWidgets.QMessageBox.critical(self, "DB Error", f"Failed to add product: {e}")
+            print(f"DB Error: {e}")  # Debug output
         self.load_products()
 
     def edit_product(self):

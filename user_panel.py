@@ -941,27 +941,58 @@ class UserPanel(QtWidgets.QMainWindow):
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
 
-        # Header with logo and search
+        # Header with logo, nav and search
         header = QtWidgets.QWidget()
         header.setStyleSheet("background-color: #FFFFFF; border-bottom: 1px solid #E0E0E0;")
         header_layout = QtWidgets.QVBoxLayout(header)
-        header_layout.setContentsMargins(20, 15, 20, 15)
+        header_layout.setContentsMargins(20, 10, 20, 10)
 
-        # Logo
+        # Top row: logo + nav on left, search + buttons on right
+        top_row = QtWidgets.QHBoxLayout()
+        
+        # Left side: logo + navigation
         logo = QtWidgets.QLabel("✨ JewelMart")
         logo.setStyleSheet("font-size: 24px; font-weight: bold; color: #C8937E;")
-        header_layout.addWidget(logo)
+        top_row.addWidget(logo)
 
-        # Search bar
-        search_layout = QtWidgets.QHBoxLayout()
+        # Navigation buttons (next to logo on left)
+        nav_btn_style = """
+            QPushButton { background: transparent; color: #333333; border: none; padding: 6px 10px; font-weight: 600; }
+            QPushButton:hover { color: #C8937E; }
+        """
+        home_btn = QtWidgets.QPushButton("Home")
+        home_btn.setStyleSheet(nav_btn_style)
+        home_btn.clicked.connect(self.load_products)
+        about_btn = QtWidgets.QPushButton("About Us")
+        about_btn.setStyleSheet(nav_btn_style)
+        about_btn.clicked.connect(lambda: QtWidgets.QMessageBox.information(self, "About Us", "JewelMart — Luxury Jewelry Store. Welcome!"))
+        contact_btn = QtWidgets.QPushButton("Contact Us")
+        contact_btn.setStyleSheet(nav_btn_style)
+        contact_btn.clicked.connect(lambda: QtWidgets.QMessageBox.information(self, "Contact Us", "Email: support@jewelmart.example\nPhone: +1-234-567-8900"))
+
+        top_row.addWidget(home_btn)
+        top_row.addWidget(about_btn)
+        top_row.addWidget(contact_btn)
+        
+        # Stretch to push right-side items to the right
+        top_row.addStretch()
+
+        # Right side: search bar and buttons
         self.search = QtWidgets.QLineEdit()
-        self.search.setPlaceholderText("Search jewelry by name or category...")
-        self.search.setMaximumWidth(500)
+        self.search.setPlaceholderText("Search...")
+        self.search.setMaximumWidth(250)
+        self.search.setMinimumWidth(180)
         self.search.returnPressed.connect(self.search_products)
         search_btn = QtWidgets.QPushButton("Search")
+        search_btn.setStyleSheet(nav_btn_style)
+        search_btn.setMaximumWidth(70)
         search_btn.clicked.connect(self.search_products)
+        
         refresh_btn = QtWidgets.QPushButton("Refresh")
+        refresh_btn.setStyleSheet(nav_btn_style)
+        refresh_btn.setMaximumWidth(70)
         refresh_btn.clicked.connect(self.load_products)
+        
         cart_btn = QtWidgets.QPushButton("🛒 View Cart")
         cart_btn.setStyleSheet("""
             QPushButton {
@@ -969,21 +1000,23 @@ class UserPanel(QtWidgets.QMainWindow):
                 color: white;
                 border: none;
                 border-radius: 4px;
-                padding: 8px 16px;
+                padding: 6px 12px;
                 font-weight: bold;
+                font-size: 11px;
             }
             QPushButton:hover {
                 background-color: #B5845E;
             }
         """)
+        cart_btn.setMaximumWidth(100)
         cart_btn.clicked.connect(self.open_cart)
-        
-        search_layout.addWidget(self.search)
-        search_layout.addWidget(search_btn)
-        search_layout.addWidget(refresh_btn)
-        search_layout.addWidget(cart_btn)
-        search_layout.addStretch()
-        header_layout.addLayout(search_layout)
+
+        top_row.addWidget(self.search)
+        top_row.addWidget(search_btn)
+        top_row.addWidget(refresh_btn)
+        top_row.addWidget(cart_btn)
+
+        header_layout.addLayout(top_row)
 
         main_layout.addWidget(header)
 

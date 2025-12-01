@@ -18,7 +18,7 @@ def load_settings():
                 return json.load(f)
     except Exception:
         pass
-    return {"theme": "dark"}
+    return {"theme": "light"}
 
 
 def save_settings(settings):

@@ -1,14 +1,29 @@
 """
-Login & Registration System - Light Golden, Black & White Theme
-Pure Python - NO DATABASE (In-Memory Storage)
+Login & Registration System - Light Pink/Rose Theme
+MongoDB Database Integration
 """
 
 from PyQt5 import QtWidgets, QtGui, QtCore
 import sys
 import hashlib
 import re
+from datetime import datetime
 
-# In-memory storage for users
+# MongoDB Integration
+try:
+    from pymongo import MongoClient
+    from pymongo.errors import ConnectionFailure, DuplicateKeyError
+    MONGODB_AVAILABLE = True
+except ImportError:
+    MONGODB_AVAILABLE = False
+    print("Warning: pymongo not installed. Install with: pip install pymongo")
+
+# MongoDB Configuration
+MONGO_URI = "mongodb://localhost:27017/"  # Default MongoDB URI
+DATABASE_NAME = "JewelMart"  # Matching your MongoDB Compass database
+COLLECTION_NAME = "users"
+
+# In-memory storage for users (fallback)
 USERS_DATA = {}
 
 
@@ -42,80 +57,210 @@ def validate_password(password: str):
     return True, "Valid"
 
 
-# Global stylesheet (Light Golden Theme)
-GOLD_STYLE = """
+# ------------------- DATABASE FUNCTIONS -------------------
+
+class DatabaseManager:
+    def __init__(self):
+        self.client = None
+        self.db = None
+        self.collection = None
+        self.connected = False
+        self.connect()
+    
+    def connect(self):
+        """Connect to MongoDB database"""
+        if not MONGODB_AVAILABLE:
+            print("MongoDB not available, using in-memory storage")
+            return False
+        
+        try:
+            self.client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
+            # Test connection
+            self.client.admin.command('ping')
+            self.db = self.client[DATABASE_NAME]
+            self.collection = self.db[COLLECTION_NAME]
+            
+            # Create unique index on email
+            self.collection.create_index("email", unique=True)
+            
+            self.connected = True
+            print(f"✓ Connected to MongoDB: {DATABASE_NAME}.{COLLECTION_NAME}")
+            return True
+            
+        except ConnectionFailure as e:
+            print(f"❌ MongoDB connection failed: {e}")
+            print("Using in-memory storage as fallback")
+            self.connected = False
+            return False
+        except Exception as e:
+            print(f"❌ Database error: {e}")
+            self.connected = False
+            return False
+    
+    def create_user(self, user_data):
+        """Create a new user in database"""
+        if not self.connected:
+            # Fallback to in-memory storage
+            email = user_data['email']
+            USERS_DATA[email] = user_data
+            return True, "User created successfully (in-memory)"
+        
+        try:
+            # Add timestamp
+            user_data['created_at'] = datetime.now()
+            user_data['updated_at'] = datetime.now()
+            
+            result = self.collection.insert_one(user_data)
+            return True, f"User created successfully with ID: {result.inserted_id}"
+            
+        except DuplicateKeyError:
+            return False, "Email already exists"
+        except Exception as e:
+            return False, f"Database error: {str(e)}"
+    
+    def authenticate_user(self, email, password):
+        """Authenticate user login"""
+        if not self.connected:
+            # Fallback to in-memory storage
+            if email in USERS_DATA:
+                stored_password = USERS_DATA[email].get('password')
+                if stored_password == hash_password(password):
+                    return True, USERS_DATA[email]
+            return False, None
+        
+        try:
+            user = self.collection.find_one({"email": email})
+            if user and user.get('password') == hash_password(password):
+                return True, user
+            return False, None
+            
+        except Exception as e:
+            print(f"Authentication error: {e}")
+            return False, None
+    
+    def update_password(self, email, new_password):
+        """Update user password"""
+        if not self.connected:
+            # Fallback to in-memory storage
+            if email in USERS_DATA:
+                USERS_DATA[email]['password'] = hash_password(new_password)
+                return True, "Password updated successfully (in-memory)"
+            return False, "User not found"
+        
+        try:
+            result = self.collection.update_one(
+                {"email": email},
+                {
+                    "$set": {
+                        "password": hash_password(new_password),
+                        "updated_at": datetime.now()
+                    }
+                }
+            )
+            
+            if result.modified_count > 0:
+                return True, "Password updated successfully"
+            return False, "User not found"
+            
+        except Exception as e:
+            return False, f"Database error: {str(e)}"
+    
+    def get_user_by_email(self, email):
+        """Get user by email"""
+        if not self.connected:
+            return USERS_DATA.get(email)
+        
+        try:
+            return self.collection.find_one({"email": email})
+        except Exception as e:
+            print(f"Database error: {e}")
+            return None
+    
+    def close_connection(self):
+        """Close database connection"""
+        if self.client:
+            self.client.close()
+            print("Database connection closed")
+
+# Initialize database manager
+db_manager = DatabaseManager()
+
+
+# Global stylesheet (JewelMart Theme - Light Pink/Rose)
+PINK_STYLE = """
 QMainWindow, QWidget {
     background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-        stop:0 #FFFFFF, stop:0.5 #FFF8DC, stop:1 #FFD700);
+        stop:0 #F5F5F5, stop:0.5 #FAFAFA, stop:1 #F0F0F0);
     font-family: 'Segoe UI', Arial;
 }
 
 QLabel {
-    color: #000000;
+    color: #333333;
     font-size: 14px;
 }
 
 QLabel#title {
-    color: #000000;
+    color: #2C2C2C;
     font-size: 32px;
     font-weight: bold;
 }
 
 QLabel#subtitle {
-    color: #333333;
+    color: #666666;
     font-size: 14px;
 }
 
 QLineEdit, QTextEdit, QComboBox {
     padding: 10px 12px;
-    # border: none;
-    # border-bottom: 2px solid #FFD700;
-    background-color: transparent;
+    background-color: #FFFFFF;
     font-size: 14px;
     min-height: 24px;
-    color: #000000;
+    color: #333333;
 }
 
 QLineEdit:focus, QTextEdit:focus, QComboBox:focus {
-    border-bottom: 2px solid #FFA500;
-    background-color: transparent;
+    background-color: #FFFFFF;
 }
 
 QPushButton#primary {
     padding: 12px;
-    # border: none;
-    # border-radius: 8px;
+    border: none;
+    border-radius: 8px;
     font-size: 15px;
     font-weight: bold;
-    color: #000000;
+    color: #FFFFFF;
     background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-        stop:0 #FFD700, stop:1 #FFA500);
+        stop:0 #E8B4B8, stop:1 #D4A5A5);
     min-height: 26px;
 }
 
 QPushButton#primary:hover {
     background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
-        stop:0 #FFA500, stop:1 #FF8C00);
+        stop:0 #D4A5A5, stop:1 #C49999);
 }
 
 QPushButton#secondary {
     background-color: transparent;
-    color: #B8860B;
+    color: #D4A5A5;
     text-decoration: underline;
-    # border: none;
+    border: none;
     font-size: 13px;
 }
 
 QPushButton#secondary:hover {
-    color: #FF8C00;
+    color: #B88888;
 }
 
 QLabel#error {
-    color: #FF1493;
+    color: #E74C3C;
     font-size: 12px;
+    font-weight: bold;
     min-height: 18px;
-    background-color: transparent;
-    padding: 2px 0px;
+    background-color: rgba(231, 76, 60, 0.1);
+    padding: 4px 8px;
+    border: 1px solid rgba(231, 76, 60, 0.3);
+    border-radius: 4px;
+    margin: 2px 0px;
 }
 """
 
@@ -125,7 +270,7 @@ QLabel#error {
 class LoginWindow(QtWidgets.QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Login - Light Golden Theme")
+        self.setWindowTitle("Login - Light Pink Theme")
         self.setFixedSize(500, 550)
         self.setup_ui()
 
@@ -137,8 +282,6 @@ class LoginWindow(QtWidgets.QWidget):
         card.setStyleSheet("""
             QFrame {
                 background-color: white;
-                # border-radius: 20px;
-                # border: 2px solid #FFD700;
             }
         """)
         card_layout = QtWidgets.QVBoxLayout(card)
@@ -162,7 +305,7 @@ class LoginWindow(QtWidgets.QWidget):
         email_container.setSpacing(6)
 
         email_label = QtWidgets.QLabel("Email Address *")
-        email_label.setStyleSheet("font-weight: bold; color: #000000; font-size: 14px;")
+        email_label.setStyleSheet("font-weight: bold; color: #333333; font-size: 14px;")
         self.email_input = QtWidgets.QLineEdit()
         self.email_input.setPlaceholderText("your.email@example.com")
         self.email_input.setFixedHeight(40)
@@ -176,7 +319,7 @@ class LoginWindow(QtWidgets.QWidget):
         password_container.setSpacing(6)
 
         password_label = QtWidgets.QLabel("Password *")
-        password_label.setStyleSheet("font-weight: bold; color: #000000; font-size: 14px;")
+        password_label.setStyleSheet("font-weight: bold; color: #333333; font-size: 14px;")
         self.password_input = QtWidgets.QLineEdit()
         self.password_input.setPlaceholderText("Enter your password")
         self.password_input.setEchoMode(QtWidgets.QLineEdit.Password)
@@ -191,6 +334,15 @@ class LoginWindow(QtWidgets.QWidget):
         self.error_label.setObjectName("error")
         self.error_label.setAlignment(QtCore.Qt.AlignCenter)
         self.error_label.setWordWrap(True)
+        # Ensure red color is applied with enhanced visibility
+        self.error_label.setStyleSheet("""
+            color: #E74C3C; 
+            font-weight: bold; 
+            font-size: 12px;
+            background-color: rgba(231, 76, 60, 0.1);
+            border-radius: 4px;
+            padding: 4px;
+        """)
         card_layout.addWidget(self.error_label)
 
         # Forgot password
@@ -226,19 +378,17 @@ class LoginWindow(QtWidgets.QWidget):
             self.error_label.setText("Please enter both email and password")
             return
 
-        if email not in USERS_DATA:
-            self.error_label.setText("Invalid email or password")
-            return
-
-        hashed_pwd = hash_password(password)
-        if USERS_DATA[email]['password'] != hashed_pwd:
+        # Use database manager for authentication
+        success, user_data = db_manager.authenticate_user(email, password)
+        
+        if not success:
             self.error_label.setText("Invalid email or password")
             return
 
         QtWidgets.QMessageBox.information(
             self,
             "Success",
-            f"Welcome back, {USERS_DATA[email]['full_name']}!"
+            f"Welcome back, {user_data['full_name']}!"
         )
         # No dashboard, just success
 
@@ -254,7 +404,9 @@ class LoginWindow(QtWidgets.QWidget):
                 QtWidgets.QMessageBox.warning(self, "Error", "Please enter a valid email")
                 return
 
-            if email not in USERS_DATA:
+            # Check if email exists in database
+            user = db_manager.get_user_by_email(email)
+            if not user:
                 QtWidgets.QMessageBox.warning(self, "Error", "Email not found")
                 return
 
@@ -286,7 +438,7 @@ class PasswordResetDialog(QtWidgets.QDialog):
         layout.setContentsMargins(25, 25, 25, 25)
 
         title = QtWidgets.QLabel("Reset Your Password")
-        title.setStyleSheet("font-size: 20px; font-weight: bold; color: #000000;")
+        title.setStyleSheet("font-size: 20px; font-weight: bold; color: #333333;")
         title.setAlignment(QtCore.Qt.AlignCenter)
         layout.addWidget(title)
 
@@ -346,9 +498,14 @@ class PasswordResetDialog(QtWidgets.QDialog):
             self.error_label.setText(msg)
             return
 
-        USERS_DATA[self.email]['password'] = hash_password(new_pwd)
-        QtWidgets.QMessageBox.information(self, "Success", "Password reset successfully!")
-        self.accept()
+        # Use database manager to update password
+        success, message = db_manager.update_password(self.email, new_pwd)
+        
+        if success:
+            QtWidgets.QMessageBox.information(self, "Success", "Password reset successfully!")
+            self.accept()
+        else:
+            self.error_label.setText(message)
 
 
 # ------------------- REGISTRATION WINDOW -------------------
@@ -356,7 +513,7 @@ class PasswordResetDialog(QtWidgets.QDialog):
 class RegistrationWindow(QtWidgets.QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setWindowTitle("Register - Light Golden Theme")
+        self.setWindowTitle("Register - Light Pink Theme")
         self.setup_ui()
 
     def setup_ui(self):
@@ -372,8 +529,6 @@ class RegistrationWindow(QtWidgets.QWidget):
         card.setStyleSheet("""
             QFrame {
                 background-color: white;
-                # border-radius: 20px;
-                # border: 2px solid #FFD700;
             }
         """)
         card_layout = QtWidgets.QVBoxLayout(card)
@@ -394,7 +549,7 @@ class RegistrationWindow(QtWidgets.QWidget):
 
         form_layout = QtWidgets.QFormLayout()
         form_layout.setSpacing(10)
-        label_style = "font-weight: bold; color: #000000; font-size: 14px;"
+        label_style = "font-weight: bold; color: #333333; font-size: 14px;"
 
         # Full Name
         name_label = QtWidgets.QLabel("Full Name *")
@@ -539,9 +694,12 @@ class RegistrationWindow(QtWidgets.QWidget):
         elif not validate_email(email):
             self.email_error.setText("Please enter a valid email")
             is_valid = False
-        elif email in USERS_DATA:
-            self.email_error.setText("Email is already registered")
-            is_valid = False
+        else:
+            # Check if email already exists in database
+            existing_user = db_manager.get_user_by_email(email)
+            if existing_user:
+                self.email_error.setText("Email is already registered")
+                is_valid = False
 
         if not mobile:
             self.mobile_error.setText("Mobile number is required")
@@ -571,9 +729,13 @@ class RegistrationWindow(QtWidgets.QWidget):
             is_valid = False
 
         if not is_valid:
+            print("Registration validation failed")  # Debug info
             return
 
-        USERS_DATA[email] = {
+        print(f"Attempting to register user: {email}")  # Debug info
+
+        # Create user data
+        user_data = {
             'full_name': full_name,
             'gender': gender,
             'email': email,
@@ -582,12 +744,28 @@ class RegistrationWindow(QtWidgets.QWidget):
             'password': hash_password(password)
         }
 
-        QtWidgets.QMessageBox.information(
-            self,
-            "Success",
-            "Registration successful! Please login."
-        )
-        self.show_login()
+        # Use database manager to create user
+        try:
+            print("Calling database manager to create user...")  # Debug info
+            success, message = db_manager.create_user(user_data)
+            print(f"Database response: success={success}, message={message}")  # Debug info
+            
+            if success:
+                QtWidgets.QMessageBox.information(
+                    self,
+                    "Success",
+                    "Registration successful! Please login."
+                )
+                print("Registration successful, switching to login")  # Debug info
+                self.show_login()
+            else:
+                error_msg = f"Registration failed: {message}"
+                self.email_error.setText(error_msg)
+                print(error_msg)  # Debug info
+        except Exception as e:
+            error_msg = f"Registration error: {str(e)}"
+            self.email_error.setText(error_msg)
+            print(error_msg)  # Debug info
 
     def show_login(self):
         main_window = self.window()
@@ -611,7 +789,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.stack.addWidget(self.login_window)
         self.stack.addWidget(self.register_window)
 
-        self.setStyleSheet(GOLD_STYLE)
+        self.setStyleSheet(PINK_STYLE)
         self.show_login()
 
     def show_login(self):

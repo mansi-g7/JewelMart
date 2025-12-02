@@ -21,7 +21,7 @@ except ImportError:
 # MongoDB Configuration
 MONGO_URI = "mongodb://localhost:27017/"  # Default MongoDB URI
 DATABASE_NAME = "JewelMart"  # Matching your MongoDB Compass database
-COLLECTION_NAME = "users"
+COLLECTION_NAME = "register"  # Using admin panel's register collection
 
 # In-memory storage for users (fallback)
 USERS_DATA = {}
@@ -80,8 +80,11 @@ class DatabaseManager:
             self.db = self.client[DATABASE_NAME]
             self.collection = self.db[COLLECTION_NAME]
             
-            # Create unique index on email
-            self.collection.create_index("email", unique=True)
+            # Create unique index on email (ignore if already exists)
+            try:
+                self.collection.create_index("email", unique=True)
+            except Exception:
+                pass  # Index might already exist
             
             self.connected = True
             print(f"✓ Connected to MongoDB: {DATABASE_NAME}.{COLLECTION_NAME}")
@@ -98,7 +101,7 @@ class DatabaseManager:
             return False
     
     def create_user(self, user_data):
-        """Create a new user in database"""
+        """Create a new user in database - compatible with admin panel"""
         if not self.connected:
             # Fallback to in-memory storage
             email = user_data['email']
@@ -106,11 +109,25 @@ class DatabaseManager:
             return True, "User created successfully (in-memory)"
         
         try:
-            # Add timestamp
-            user_data['created_at'] = datetime.now()
-            user_data['updated_at'] = datetime.now()
+            # Check if email already exists
+            existing = self.collection.find_one({"email": user_data['email']})
+            if existing:
+                return False, "Email already exists"
             
-            result = self.collection.insert_one(user_data)
+            # Format data for admin panel compatibility
+            # Admin panel expects: username, password, email, mobile
+            admin_format = {
+                'username': user_data['full_name'],
+                'password': user_data['password'],  # Already hashed
+                'email': user_data['email'],
+                'mobile': user_data['mobile'],
+                'gender': user_data.get('gender', ''),
+                'address': user_data.get('address', ''),
+                'created_at': datetime.now(),
+                'updated_at': datetime.now()
+            }
+            
+            result = self.collection.insert_one(admin_format)
             return True, f"User created successfully with ID: {result.inserted_id}"
             
         except DuplicateKeyError:
@@ -119,7 +136,7 @@ class DatabaseManager:
             return False, f"Database error: {str(e)}"
     
     def authenticate_user(self, email, password):
-        """Authenticate user login"""
+        """Authenticate user login - compatible with admin panel"""
         if not self.connected:
             # Fallback to in-memory storage
             if email in USERS_DATA:
@@ -130,8 +147,22 @@ class DatabaseManager:
         
         try:
             user = self.collection.find_one({"email": email})
-            if user and user.get('password') == hash_password(password):
-                return True, user
+            if user:
+                stored_password = user.get('password')
+                hashed_input = hash_password(password)
+                
+                # Check both hashed and plain password for backward compatibility
+                if stored_password == hashed_input or stored_password == password:
+                    # Return user data with full_name for compatibility
+                    user_data = {
+                        'email': user.get('email'),
+                        'full_name': user.get('username', user.get('full_name', '')),
+                        'mobile': user.get('mobile', ''),
+                        'gender': user.get('gender', ''),
+                        'address': user.get('address', ''),
+                        '_id': user.get('_id')
+                    }
+                    return True, user_data
             return False, None
             
         except Exception as e:

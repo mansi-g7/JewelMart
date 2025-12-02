@@ -770,6 +770,7 @@ from PyQt5 import QtWidgets, QtGui, QtCore
 import sys, os
 from pymongo import MongoClient
 from cart import ShoppingCart, CartDialog
+from order_page import OrderPage
 try:
     from home_page import HomePage
 except Exception:
@@ -1017,10 +1018,50 @@ class UserPanel(QtWidgets.QMainWindow):
         cart_btn.setMaximumWidth(100)
         cart_btn.clicked.connect(self.open_cart)
 
+        # Orders button
+        orders_btn = QtWidgets.QPushButton("📦 My Orders")
+        orders_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #B8D4E8;
+                color: #333333;
+                border: none;
+                border-radius: 4px;
+                padding: 6px 12px;
+                font-weight: bold;
+                font-size: 11px;
+            }
+            QPushButton:hover {
+                background-color: #A0C8E0;
+            }
+        """)
+        orders_btn.setMaximumWidth(110)
+        orders_btn.clicked.connect(self.open_orders)
+
+        # Login button
+        login_btn = QtWidgets.QPushButton("👤 Login")
+        login_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #E8C5C9;
+                color: #333333;
+                border: none;
+                border-radius: 4px;
+                padding: 6px 12px;
+                font-weight: bold;
+                font-size: 11px;
+            }
+            QPushButton:hover {
+                background-color: #DDB5BE;
+            }
+        """)
+        login_btn.setMaximumWidth(90)
+        login_btn.clicked.connect(self.open_login)
+
         top_row.addWidget(self.search)
         top_row.addWidget(search_btn)
         top_row.addWidget(refresh_btn)
         top_row.addWidget(cart_btn)
+        top_row.addWidget(orders_btn)
+        top_row.addWidget(login_btn)
 
         header_layout.addLayout(top_row)
 
@@ -1397,6 +1438,32 @@ class UserPanel(QtWidgets.QMainWindow):
         """Open the shopping cart dialog."""
         dlg = CartDialog(self.cart, self)
         dlg.exec_()
+
+    # -------- OPEN ORDERS ----------
+    def open_orders(self):
+        """Open the orders page in a new window."""
+        try:
+            self.orders_window = QtWidgets.QMainWindow(self)
+            self.orders_window.setWindowTitle("JewelMart - My Orders")
+            self.orders_window.resize(900, 700)
+            
+            order_page = OrderPage(user_id=self.user_id, parent=self.orders_window)
+            self.orders_window.setCentralWidget(order_page)
+            self.orders_window.show()
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(self, "Error", f"Failed to open orders page: {e}")
+
+    # -------- OPEN LOGIN ----------
+    def open_login(self):
+        """Open the login/registration window."""
+        try:
+            from login_registration import MainWindow as LoginMainWindow
+            self.login_window = LoginMainWindow()
+            self.login_window.show()
+        except ImportError as e:
+            QtWidgets.QMessageBox.critical(self, "Error", f"Failed to load login module: {e}")
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(self, "Error", f"Failed to open login window: {e}")
 
 
 def main():

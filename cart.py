@@ -117,6 +117,121 @@ class ShoppingCart:
         return sum(item.get('qty', 1) for item in self.items)
 
 
+class DeliveryAddressDialog(QtWidgets.QDialog):
+    """Dialog to collect delivery address for order."""
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("Delivery Address")
+        self.resize(500, 400)
+        self.setup_ui()
+    
+    def setup_ui(self):
+        layout = QtWidgets.QVBoxLayout(self)
+        layout.setSpacing(15)
+        
+        # Title
+        title = QtWidgets.QLabel("Enter Delivery Address")
+        title.setStyleSheet("font-size: 18px; font-weight: bold; color: #333333;")
+        layout.addWidget(title)
+        
+        subtitle = QtWidgets.QLabel("Please provide your complete delivery address")
+        subtitle.setStyleSheet("color: #666666; font-size: 13px;")
+        layout.addWidget(subtitle)
+        
+        # Address fields
+        form_layout = QtWidgets.QFormLayout()
+        form_layout.setSpacing(10)
+        
+        self.name_input = QtWidgets.QLineEdit()
+        self.name_input.setPlaceholderText("Full Name")
+        form_layout.addRow("Name:", self.name_input)
+        
+        self.phone_input = QtWidgets.QLineEdit()
+        self.phone_input.setPlaceholderText("10-digit mobile number")
+        self.phone_input.setMaxLength(10)
+        form_layout.addRow("Phone:", self.phone_input)
+        
+        self.address_input = QtWidgets.QTextEdit()
+        self.address_input.setPlaceholderText("House No., Building Name, Street, Area")
+        self.address_input.setMaximumHeight(80)
+        form_layout.addRow("Address:", self.address_input)
+        
+        self.city_input = QtWidgets.QLineEdit()
+        self.city_input.setPlaceholderText("City")
+        form_layout.addRow("City:", self.city_input)
+        
+        self.state_input = QtWidgets.QLineEdit()
+        self.state_input.setPlaceholderText("State")
+        form_layout.addRow("State:", self.state_input)
+        
+        self.pincode_input = QtWidgets.QLineEdit()
+        self.pincode_input.setPlaceholderText("6-digit PIN code")
+        self.pincode_input.setMaxLength(6)
+        form_layout.addRow("PIN Code:", self.pincode_input)
+        
+        layout.addLayout(form_layout)
+        
+        # Buttons
+        button_layout = QtWidgets.QHBoxLayout()
+        button_layout.addStretch()
+        
+        cancel_btn = QtWidgets.QPushButton("Cancel")
+        cancel_btn.clicked.connect(self.reject)
+        button_layout.addWidget(cancel_btn)
+        
+        confirm_btn = QtWidgets.QPushButton("Confirm Address")
+        confirm_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #C8937E;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                padding: 10px 20px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #B5845E;
+            }
+        """)
+        confirm_btn.clicked.connect(self.validate_and_accept)
+        button_layout.addWidget(confirm_btn)
+        
+        layout.addLayout(button_layout)
+    
+    def validate_and_accept(self):
+        """Validate address fields before accepting."""
+        if not self.name_input.text().strip():
+            QtWidgets.QMessageBox.warning(self, "Required", "Please enter your name")
+            return
+        
+        if not self.phone_input.text().strip() or len(self.phone_input.text().strip()) != 10:
+            QtWidgets.QMessageBox.warning(self, "Required", "Please enter a valid 10-digit phone number")
+            return
+        
+        if not self.address_input.toPlainText().strip():
+            QtWidgets.QMessageBox.warning(self, "Required", "Please enter your address")
+            return
+        
+        if not self.city_input.text().strip():
+            QtWidgets.QMessageBox.warning(self, "Required", "Please enter your city")
+            return
+        
+        if not self.state_input.text().strip():
+            QtWidgets.QMessageBox.warning(self, "Required", "Please enter your state")
+            return
+        
+        if not self.pincode_input.text().strip() or len(self.pincode_input.text().strip()) != 6:
+            QtWidgets.QMessageBox.warning(self, "Required", "Please enter a valid 6-digit PIN code")
+            return
+        
+        self.accept()
+    
+    def get_address(self):
+        """Get formatted address string."""
+        return f"{self.name_input.text()}\n{self.phone_input.text()}\n{self.address_input.toPlainText()}\n{self.city_input.text()}, {self.state_input.text()} - {self.pincode_input.text()}"
+
+
 class CartDialog(QtWidgets.QDialog):
     """Shopping cart popup window with quantity edit and checkout."""
     
@@ -244,13 +359,24 @@ class CartDialog(QtWidgets.QDialog):
                 self.refresh_table()
     
     def checkout(self):
-        """Process checkout and place order."""
+        """Process checkout and place order with delivery address."""
         if self.cart.is_empty():
             QtWidgets.QMessageBox.warning(self, "Empty Cart", "Your cart is empty!")
             return
         
         total = self.cart.get_total()
         
+        # Get delivery address
+        address_dialog = DeliveryAddressDialog(self)
+        if address_dialog.exec_() != QtWidgets.QDialog.Accepted:
+            return
+        
+        delivery_address = address_dialog.get_address()
+        if not delivery_address.strip():
+            QtWidgets.QMessageBox.warning(self, "Address Required", "Please enter a delivery address!")
+            return
+        
+        # Confirm order
         reply = QtWidgets.QMessageBox.question(self, "Confirm Order", 
             f"Proceed with order for ₹{total}?",
             QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
@@ -268,13 +394,18 @@ class CartDialog(QtWidgets.QDialog):
                     "items": self.cart.items,
                     "total": total,
                     "status": "pending",
+                    "delivery_address": delivery_address,
                     "created_at": datetime.now()
                 }
                 orders_collection.insert_one(order_doc)
+                
+                QtWidgets.QMessageBox.information(self, "Order Placed", 
+                    f"✓ Thank you for your order!\n\nOrder ID: {order_id}\nTotal: ₹{total}\n\nYour order will be delivered soon!")
+                self.cart.clear()
+                self.refresh_table()
+                self.accept()  # Close cart dialog after successful order
+                
             except Exception as e:
                 print(f"Error saving order to DB: {e}")
-            
-            QtWidgets.QMessageBox.information(self, "Order Placed", 
-                f"✓ Thank you for your order!\n\nOrder ID: {order_id}\nTotal: ₹{total}\n\nYour order will be delivered soon!")
-            self.cart.clear()
-            self.refresh_table()
+                QtWidgets.QMessageBox.critical(self, "Order Failed", 
+                    f"Failed to place order: {e}\n\nPlease try again.")

@@ -7,6 +7,9 @@ Features:
 """
 
 from PyQt5 import QtWidgets, QtGui, QtCore
+from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent, QMediaPlaylist
+from PyQt5.QtMultimediaWidgets import QVideoWidget
+from PyQt5.QtCore import QUrl
 import os
 import glob
 
@@ -35,12 +38,24 @@ class ImageCarousel(QtWidgets.QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(10)
         
-        # Image display
+        # Media display (images or video)
+        self.stacked = QtWidgets.QStackedWidget()
+
+        # Image widget
         self.image_label = QtWidgets.QLabel()
         self.image_label.setAlignment(QtCore.Qt.AlignCenter)
         self.image_label.setFixedHeight(400)
         self.image_label.setStyleSheet("background-color: #F5F5F5; border-radius: 8px;")
-        layout.addWidget(self.image_label)
+        self.stacked.addWidget(self.image_label)
+
+        # Video widget + player
+        self.video_widget = QVideoWidget()
+        self.video_widget.setFixedHeight(400)
+        self.video_player = QMediaPlayer(None, QMediaPlayer.VideoSurface)
+        self.video_player.setVideoOutput(self.video_widget)
+        self.stacked.addWidget(self.video_widget)
+
+        layout.addWidget(self.stacked)
         
         # Controls
         controls = QtWidgets.QHBoxLayout()
@@ -115,11 +130,63 @@ class ImageCarousel(QtWidgets.QWidget):
             return
         
         img_path = self.images[self.current_index]
-        if os.path.exists(img_path):
-            pixmap = QtGui.QPixmap(img_path).scaled(800, 400, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
-            self.image_label.setPixmap(pixmap)
+        # If the current slide is a video, play it in the video widget
+        _, ext = os.path.splitext(img_path)
+        ext = ext.lower()
+        video_extensions = ('.mp4', '.mov', '.avi', '.mkv')
+
+        # Stop any currently playing video when switching slides
+        try:
+            if self.video_player.state() == QMediaPlayer.PlayingState:
+                self.video_player.stop()
+        except Exception:
+            pass
+
+        if ext in video_extensions:
+            if os.path.exists(img_path):
+                # show video widget and play
+                self.stacked.setCurrentWidget(self.video_widget)
+                media = QMediaContent(QUrl.fromLocalFile(os.path.abspath(img_path)))
+                self.video_player.setMedia(media)
+                # Pause the carousel timer while video plays
+                if self.timer.isActive():
+                    self.timer.stop()
+
+                # When video finishes, move to next image and restart timer
+                def _on_media_status_changed(status):
+                    # QMediaPlayer.EndOfMedia equals 7 in some PyQt versions
+                    try:
+                        from PyQt5.QtMultimedia import QMediaPlayer as _QMP
+                        end_status = _QMP.EndOfMedia
+                    except Exception:
+                        end_status = None
+
+                    if status == end_status:
+                        try:
+                            self.video_player.mediaStatusChanged.disconnect(_on_media_status_changed)
+                        except Exception:
+                            pass
+                        self.next_image()
+                        if self.images:
+                            self.timer.start(5000)
+
+                try:
+                    self.video_player.mediaStatusChanged.connect(_on_media_status_changed)
+                except Exception:
+                    pass
+
+                self.video_player.play()
+            else:
+                self.image_label.setText(f"Video not found: {os.path.basename(img_path)}")
+                self.stacked.setCurrentWidget(self.image_label)
         else:
-            self.image_label.setText(f"Image not found: {os.path.basename(img_path)}")
+            # show image
+            if os.path.exists(img_path):
+                pixmap = QtGui.QPixmap(img_path).scaled(800, 400, QtCore.Qt.KeepAspectRatio, QtCore.Qt.SmoothTransformation)
+                self.image_label.setPixmap(pixmap)
+            else:
+                self.image_label.setText(f"Image not found: {os.path.basename(img_path)}")
+            self.stacked.setCurrentWidget(self.image_label)
         
         # Update counter
         self.slide_counter.setText(f"{self.current_index + 1} / {len(self.images)}")
@@ -176,6 +243,9 @@ class HomePage(QtWidgets.QWidget):
     
     def __init__(self):
         super().__init__()
+        # keep player/widget references so we can pause/stop when page is hidden
+        self.player = None
+        self.video_widget = None
         self.init_ui()
     
     def init_ui(self):
@@ -206,10 +276,35 @@ class HomePage(QtWidgets.QWidget):
         
         main_layout.addSpacing(20)
         
-        # Image carousel
-        images = self.get_carousel_images()
-        carousel = ImageCarousel(images)
-        main_layout.addWidget(carousel)
+        # Show only the JewelMart.mp4 video (if present) in the hero area
+        video_path = os.path.join(ASSETS_DIR, "JewelMart.mp4")
+        if os.path.exists(video_path):
+            self.video_widget = QVideoWidget()
+            self.video_widget.setFixedHeight(400)
+            playlist = QMediaPlaylist()
+            playlist.addMedia(QMediaContent(QUrl.fromLocalFile(video_path)))
+            playlist.setPlaybackMode(QMediaPlaylist.Loop)
+
+            self.player = QMediaPlayer(None, QMediaPlayer.VideoSurface)
+            self.player.setPlaylist(playlist)
+            self.player.setVideoOutput(self.video_widget)
+            try:
+                self.player.setMuted(True)
+            except Exception:
+                pass
+            # start playback only when page shown; but start now so poster displays in some setups
+            try:
+                self.player.play()
+            except Exception:
+                pass
+
+            # show only the video widget (controls removed)
+            main_layout.addWidget(self.video_widget)
+        else:
+            # fallback to image carousel when no video is available
+            images = self.get_carousel_images()
+            carousel = ImageCarousel(images)
+            main_layout.addWidget(carousel)
         
         main_layout.addSpacing(20)
         
@@ -301,5 +396,50 @@ class HomePage(QtWidgets.QWidget):
             images.extend(glob.glob(os.path.join(ASSETS_DIR, ext)))
             if len(images) >= 5:
                 break
-        
-        return sorted(images)[:5] if images else []
+
+        images = sorted(images)[:5] if images else []
+
+        # If there's a JewelMart.mp4 in assets, place it at the start of the carousel
+        video_path = os.path.join(ASSETS_DIR, "JewelMart.mp4")
+        if os.path.exists(video_path):
+            # Prepend video if not already in list
+            if video_path not in images:
+                images.insert(0, video_path)
+
+        return images
+
+    def showEvent(self, event):
+        super().showEvent(event)
+        # resume/play video when this page becomes visible
+        try:
+            if getattr(self, 'player', None) is not None:
+                # ensure widget visible
+                if getattr(self, 'video_widget', None) is not None:
+                    try:
+                        self.video_widget.show()
+                    except Exception:
+                        pass
+                self.player.play()
+        except Exception:
+            pass
+
+    def hideEvent(self, event):
+        super().hideEvent(event)
+        # pause/stop video when this page is hidden
+        try:
+            if getattr(self, 'player', None) is not None:
+                try:
+                    self.player.pause()
+                except Exception:
+                    try:
+                        self.player.stop()
+                    except Exception:
+                        pass
+                # hide widget to avoid it showing under other pages
+                if getattr(self, 'video_widget', None) is not None:
+                    try:
+                        self.video_widget.hide()
+                    except Exception:
+                        pass
+        except Exception:
+            pass

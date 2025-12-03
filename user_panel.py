@@ -1102,7 +1102,10 @@ class UserPanel(QtWidgets.QMainWindow):
         if HomePage is not None:
             try:
                 home_widget = HomePage()
-                self.category_tabs.addTab(home_widget, "Home")
+                home_scroll = QtWidgets.QScrollArea()
+                home_scroll.setWidgetResizable(True)
+                home_scroll.setWidget(home_widget)
+                self.category_tabs.addTab(home_scroll, "Home")
             except Exception:
                 hw = QtWidgets.QWidget()
                 hl = QtWidgets.QVBoxLayout(hw)
@@ -1185,7 +1188,10 @@ class UserPanel(QtWidgets.QMainWindow):
         if HomePage is not None:
             try:
                 home_widget = HomePage()
-                self.category_tabs.addTab(home_widget, "Home")
+                home_scroll = QtWidgets.QScrollArea()
+                home_scroll.setWidgetResizable(True)
+                home_scroll.setWidget(home_widget)
+                self.category_tabs.addTab(home_scroll, "Home")
             except Exception:
                 hw = QtWidgets.QWidget()
                 hl = QtWidgets.QVBoxLayout(hw)

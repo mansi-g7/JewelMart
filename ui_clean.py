@@ -428,10 +428,8 @@ class MainWindow(QtWidgets.QMainWindow):
         header = self.create_header()
         central_layout.addWidget(header)
 
-        # main content area: sidebar + stacked pages
+        # main content area: stacked pages (sidebar removed)
         content_h = QtWidgets.QHBoxLayout()
-        self.sidebar = self.create_sidebar()
-        content_h.addWidget(self.sidebar)
         content_h.addWidget(self.stack, 1)
         central_layout.addLayout(content_h, 1)
 
